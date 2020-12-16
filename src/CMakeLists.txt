@@ -14,4 +14,4 @@ add_library(src ${ALL_CPPS} ${ALL_HPPS})
 target_include_directories(src PUBLIC ../inc)
 
 # sets c++ version
-target_compile_features(src PUBLIC cxx_std_20)
+target_compile_features(src PUBLIC cxx_std_14)
