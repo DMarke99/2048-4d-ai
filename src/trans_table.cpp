@@ -30,7 +30,7 @@ board_t h_board_5(const board_t& board){return transpose(board);}
 
 trans_table::trans_table(const std::vector<float>& params){
     this->params = params;
-    cached_expectimax_values = std::vector<std::unordered_map<board_t, float>>(MAX_DEPTH);
+    cached_emax_values = std::vector<std::unordered_map<board_t, emax_state>>(MAX_DEPTH);
     
     std::vector<board_t> arr;
     board_t row;
@@ -130,10 +130,13 @@ float trans_table::move_node(const board_t& board, const int& depth, const float
     // if there are no valid moves, return heuristic
     if (move_mask == 0) return heuristic(board);
     
+    // factor to reduce computation time of large search spaces
+    float factor = popcount(move_mask) > 4 ? 2.0 : 1.0;
+    
     while (move_mask){
         
         if (move_mask & 1) {
-            res = std::max(res, expectation_node(_shift_board(board, DIRECTIONS[idx]), depth, prob, min_prob));
+            res = std::max(res, expectation_node(_shift_board(board, DIRECTIONS[idx]), depth, prob, factor * min_prob));
         }
         
         ++idx;
@@ -145,19 +148,24 @@ float trans_table::move_node(const board_t& board, const int& depth, const float
 
 // expectation node in expectimax
 float trans_table::expectation_node(const board_t& board, const int& depth, const float& prob, const float& min_prob){
-    std::unordered_map<board_t, float>::iterator address;
+    std::unordered_map<board_t, emax_state>::iterator address;
     
     if ((prob < min_prob) || (depth <= 0)){
         
         // final layer
         return heuristic(board);
         
-    } else if ((address = cached_expectimax_values[depth].find(board)) != cached_expectimax_values[depth].end()){
+    } else {
         
         // cached expectation layer score
-        return address->second;
-        
-    } else {
+        if ((address = cached_emax_values[depth].find(board)) != cached_emax_values[depth].end()){
+            
+            // only returns cached values that are calculated to at least the current specified accuracy
+            if (address->second.min_prob <= min_prob){
+
+                return address->second.val;
+            }
+        }
         
         // uncached expectation layer
         float res = 0;
@@ -182,14 +190,14 @@ float trans_table::expectation_node(const board_t& board, const int& depth, cons
         }
         
         res /= n_empty_tiles;
-        cached_expectimax_values[depth][board] = res;
+        cached_emax_values[depth][board] = {res, min_prob};
         return res;
     }
 }
 
 DIRECTION trans_table::expectimax(const Board& board, const int& depth, const float& p_min){
     
-    cached_expectimax_values = std::vector<std::unordered_map<board_t, float>>(MAX_DEPTH);
+    cached_emax_values = std::vector<std::unordered_map<board_t, emax_state>>(MAX_DEPTH);
     
     std::vector<DIRECTION> moves = board.valid_moves();
     assert (moves.size() > 0);

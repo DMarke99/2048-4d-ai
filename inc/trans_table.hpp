@@ -8,6 +8,11 @@ T max4(const T& x0, const T& x1, const T& x2, const T& x3);
 template <class T>
 T max6(const T& x0, const T& x1, const T& x2, const T& x3, const T& x4, const T& x5);
 
+struct emax_state {
+    float val;
+    float min_prob;
+};
+
 // board manipulation methods used only for calculating heuristics
 board_t h_board_0(const board_t& board);
 board_t h_board_1(const board_t& board);
@@ -20,7 +25,7 @@ board_t h_board_5(const board_t& board);
 class trans_table {
 private:
     std::vector<float> params;
-    std::vector<std::unordered_map<board_t, float>> cached_expectimax_values;
+    std::vector<std::unordered_map<board_t, emax_state>> cached_emax_values;
     float _partial_square_row[65536];
     float _partial_heuristic[65536];
 public:
