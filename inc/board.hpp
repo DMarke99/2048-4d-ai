@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <cassert>
 #include <future>
 #include <iomanip>
 #include <iostream>
@@ -103,6 +104,8 @@ public:
     int penalty = 0;
     bool max_tile_exceeded = false;
     
+    Board(const board_t& board = 0) : board(board) {};
+    
     size_t get(const size_t& x0, const size_t& x1, const size_t& x2, const size_t& x3);
     void set(const size_t& x0, const size_t& x1, const size_t& x2, const size_t& x3, const size_t& val);
     int score() const;
@@ -116,9 +119,6 @@ public:
     board_t generate_piece();
     board_t move(const DIRECTION& d);
     DIRECTION random_move() const;
-
-
-
 };
 
 std::ostream& operator<<(std::ostream& os, const Board& B);

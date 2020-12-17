@@ -28,6 +28,42 @@ board_t h_board_4(const board_t& board){return swap_0_3(board);}
 // rows are square faces on axis 0 & 1
 board_t h_board_5(const board_t& board){return transpose(board);}
 
+// function used for parallelization of square face calculations
+board_t h_board(const board_t& board, const int& h_idx){
+    switch (h_idx){
+        case 0:
+            return h_board_0(board);
+        case 1:
+            return h_board_1(board);
+        case 2:
+            return h_board_2(board);
+        case 3:
+            return h_board_3(board);
+        case 4:
+            return h_board_4(board);
+        case 5:
+            return h_board_5(board);
+        default:
+            return 0;
+    }
+}
+
+// function used for parallelization of square face calculations
+board_t facet(const board_t& board, const int& f_idx){
+    switch (f_idx){
+        case 0:
+            return board;
+        case 1:
+            return swap_0_1(board);
+        case 2:
+            return swap_0_2(board);
+        case 3:
+            return swap_0_3(board);
+        default:
+            return 0;
+    }
+}
+
 trans_table::trans_table(const std::vector<float>& params){
     this->params = params;
     cached_emax_values = std::vector<std::unordered_map<board_t, emax_state>>(MAX_DEPTH);
@@ -41,7 +77,8 @@ trans_table::trans_table(const std::vector<float>& params){
                     arr = {x3, x2, x1, x0};
                     row = arr_to_row_transition(arr);
                     
-                    _partial_square_row[row] = row_pow_val[row] + (params[4]/(params[3] + 1e-8)) * row_edge_val[row];
+                    _partial_square_row[row] = params[2] * (row_pow_val[row] + params[4] * row_edge_val[row]);
+
                     _partial_heuristic[row] = params[0] * n_row_merges[row] + params[1] * zero_count(arr) - params[5] * row_mon_vals[row];
                 }
             }
@@ -49,24 +86,31 @@ trans_table::trans_table(const std::vector<float>& params){
     }
 }
 
-// heuristic which encourages all large tiles to be in the same cubic face
+// heuristic which encourages all large tiles to be in the same cubic face, square face and edge
 float trans_table::cube_score(const board_t& board) const {
     
     board_t board0 = board;
     board_t board1 = h_board_1(board);
     board_t board2 = h_board_3(board);
     
-    float facet0 = _partial_square_row[ROW_MASK & board0] + _partial_square_row[ROW_MASK & (board0 >> 16)];
-    float facet1 = _partial_square_row[ROW_MASK & board1] + _partial_square_row[ROW_MASK & (board1 >> 16)];
-    float facet2 = _partial_square_row[ROW_MASK & board2] + _partial_square_row[ROW_MASK & (board2 >> 16)];
+    float square_0_0 = _partial_square_row[ROW_MASK & board0];
+    float square_0_1 = _partial_square_row[ROW_MASK & (board0 >> 16)];
+    
+    float square_1_0 = _partial_square_row[ROW_MASK & board1];
+    float square_1_1 = _partial_square_row[ROW_MASK & (board1 >> 16)];
+    
+    float square_2_0 = _partial_square_row[ROW_MASK & board2];
+    float square_2_1 = _partial_square_row[ROW_MASK & (board2 >> 16)];
 
+    float facet0 = (square_0_0 > square_0_1) ? (square_0_0 * params[3] + square_0_1) : (square_0_1 * params[3] + square_0_0);
+    float facet1 = (square_1_0 > square_1_1) ? (square_1_0 * params[3] + square_1_1) : (square_1_1 * params[3] + square_1_0);
+    float facet2 = (square_2_0 > square_2_1) ? (square_2_0 * params[3] + square_2_1) : (square_2_1 * params[3] + square_2_0);
+    
     return std::max(std::max(facet0, facet1), facet2);
 }
 
 float trans_table::partial_facet_score(const board_t& board) const {
-    float facet1 = cube_score(0xffffffff & board);
-    float facet2 = cube_score(board >> 32);
-    return std::max(facet1, facet2);
+    return std::max(cube_score(board >> 32), cube_score(0xffffffff & board));
 }
 
 float trans_table::facet_score(const board_t& board) const {
@@ -74,23 +118,6 @@ float trans_table::facet_score(const board_t& board) const {
     partial_facet_score(swap_0_1(board)),
     partial_facet_score(swap_0_2(board)),
     partial_facet_score(swap_0_3(board)));
-}
-
-// heuristic which encourages largest tiles to be in the same square face
-float trans_table::partial_square_score(const board_t& board) const {
-    return max4(_partial_square_row[ROW_MASK & board],
-    _partial_square_row[ROW_MASK & (board >> 16)],
-    _partial_square_row[ROW_MASK & (board >> 32)],
-    _partial_square_row[ROW_MASK & (board >> 48)]);
-}
-
-float trans_table::square_score(const board_t& board) const {
-    return max6(partial_square_score(h_board_0(board)),
-    partial_square_score(h_board_1(board)),
-    partial_square_score(h_board_2(board)),
-    partial_square_score(h_board_3(board)),
-    partial_square_score(h_board_4(board)),
-    partial_square_score(h_board_5(board)));
 }
 
 // the remaining parts of the heuristic
@@ -111,16 +138,17 @@ float trans_table::partial_row_heuristic(const board_t& board) const {
     + partial_heuristic(h_board_5(board));
 }
 
+float trans_table::non_terminal_heuristic(const board_t& board) const {
+    return facet_score(board) + partial_row_heuristic(board);
+}
+
 float trans_table::heuristic(const board_t& board) const {
-    return params[2] * facet_score(board)
-    + params[3] * square_score(board)
-    + partial_row_heuristic(board)
-    - LOSS_PENALTY * is_terminal(board);
+    return non_terminal_heuristic(board) - LOSS_PENALTY * is_terminal(board);
 }
 
 // move node in expectimax
 float trans_table::move_node(const board_t& board, const int& depth, const float& prob, const float& min_prob){
-    
+    ++b_eval_count;
     float res = -INFINITY;
 
     // pick move with greatest expected utility
@@ -128,10 +156,14 @@ float trans_table::move_node(const board_t& board, const int& depth, const float
     u_int16_t move_mask = _valid_move_mask(board);
 
     // if there are no valid moves, return heuristic
-    if (move_mask == 0) return heuristic(board);
+    if (move_mask == 0){
+        return heuristic(board);
+    }
     
     // factor to reduce computation time of large search spaces
-    float factor = popcount(move_mask) > 4 ? 2.0 : 1.0;
+    //float factor = std::max(1.0 + 0.15 * (popcount(move_mask) - 1), 1.5);
+    
+    float factor = 1.0;
     
     while (move_mask){
         
@@ -149,22 +181,29 @@ float trans_table::move_node(const board_t& board, const int& depth, const float
 // expectation node in expectimax
 float trans_table::expectation_node(const board_t& board, const int& depth, const float& prob, const float& min_prob){
     std::unordered_map<board_t, emax_state>::iterator address;
+    ++b_eval_count;
     
     if ((prob < min_prob) || (depth <= 0)){
         
         // final layer
-        return heuristic(board);
+        // board cannot be terminal if entered from a move node
+        return non_terminal_heuristic(board);
         
     } else {
         
+        auto address = cached_emax_values[depth].find(board);
+        
         // cached expectation layer score
-        if ((address = cached_emax_values[depth].find(board)) != cached_emax_values[depth].end()){
+        if (address != cached_emax_values[depth].end()){
             
-            // only returns cached values that are calculated to at least the current specified accuracy
-            if (address->second.min_prob <= min_prob){
+            {
+                // only returns cached values that are calculated to at least the current specified accuracy
+                if (address->second.min_prob <= min_prob){
 
-                return address->second.val;
+                    return address->second.val;
+                }
             }
+
         }
         
         // uncached expectation layer
@@ -190,6 +229,7 @@ float trans_table::expectation_node(const board_t& board, const int& depth, cons
         }
         
         res /= n_empty_tiles;
+        
         cached_emax_values[depth][board] = {res, min_prob};
         return res;
     }
@@ -212,18 +252,145 @@ DIRECTION trans_table::expectimax(const Board& board, const int& depth, const fl
     }
     
     // returns argmax
-    float best_score = -INFINITY;
-
-    DIRECTION res = moves[0];
+    std::vector<move_state> move_scores;
     
     for (auto move : moves){
         float next_score = expectation_node(_shift_board(board.board, move), depth, 1.0, p_min);
+        
+        move_scores.push_back({move, next_score});
+    }
     
-        if (next_score > best_score){
-            best_score = next_score;
-            res = move;
+    float best_score = -INFINITY;
+    DIRECTION res = moves[0];
+    
+    for (auto ms : move_scores){
+        if (ms.emax_val > best_score){
+            best_score = ms.emax_val;
+            res = ms.move;
         }
     }
     
+    return res;
+}
+
+
+float trans_table::minimax_min(const board_t& board, size_t depth, float alpha, float beta){
+    
+    // uncached expectation layer
+    float res = INFINITY;
+    board_t free_tiles = is_blank(board);
+    
+    board_t randomSetBit = 1;
+    
+    while (free_tiles){
+        if (free_tiles & 1){
+            
+            // places 2 in free tile
+            res = std::min(res, minimax_max(board | randomSetBit, depth-1, alpha, beta));
+            beta = std::min(beta, res);
+            if (beta <= alpha) return res;
+            
+            // places 4 in free tile
+            res = std::min(res, minimax_max(board | (randomSetBit << 1), depth-1, alpha, beta));
+            beta = std::min(beta, res);
+            if (beta <= alpha) return res;
+
+        }
+        
+        randomSetBit <<= 4;
+        free_tiles >>= 4;
+    }
+
+    return res;
+};
+
+float trans_table::minimax_max(const board_t& board, size_t depth, float alpha, float beta){
+    
+    float res = -INFINITY;
+
+    // pick move with greatest expected utility
+    int idx = 0;
+    u_int16_t move_mask = _valid_move_mask(board);
+
+    // if there are no valid moves, return heuristic
+    if ((move_mask == 0) or (depth <= 0)){
+        return heuristic(board);
+    }
+
+    
+    while (move_mask){
+        
+        if (move_mask & 1) {
+            res = std::max(res, minimax_min(_shift_board(board, DIRECTIONS[idx]), depth, alpha, beta));
+        }
+        
+        ++idx;
+        move_mask >>= 1;
+    }
+
+    return res;
+    
+};
+
+DIRECTION trans_table::minimax(const Board& board, size_t depth){
+    std::vector<DIRECTION> moves = board.valid_moves();
+    assert (moves.size() > 0);
+    
+    // forces board to make 65536 if it can
+    if (_count(board.board, 15) == 2){
+        for (auto move : moves){
+            if (_count(_shift_board(board.board, move), 15) == 1){
+                return move;
+            }
+        }
+    }
+    
+    // returns argmax
+    std::vector<move_state> move_scores;
+    
+    for (auto move : moves){
+        float next_score = minimax_min(_shift_board(board.board, move), depth);
+        move_scores.push_back({move, next_score});
+    }
+    
+    float best_score = -INFINITY;
+    DIRECTION res = moves[0];
+    
+    for (auto ms : move_scores){
+        if (ms.emax_val > best_score){
+            best_score = ms.emax_val;
+            res = ms.move;
+        }
+    }
+    
+    return res;
+};
+
+DIRECTION trans_table::mcts(const Board& board, size_t n_sims){
+    std::vector<DIRECTION> moves = board.valid_moves();
+    assert (moves.size() > 0);
+    
+    int best_score = 0;
+    DIRECTION res = moves[0];
+    
+    for (auto move : moves){
+        
+        int tmp_score = 0;
+        
+        for (int i = 0; i < n_sims/moves.size(); ++i){
+            Board tmp_board = board;
+            tmp_board.move(move);
+            tmp_board.generate_piece();
+            
+            while (!is_terminal(tmp_board.board)){
+                tmp_board.move(tmp_board.random_move());
+            }
+            tmp_score += tmp_board.score();
+        }
+        if (tmp_score > best_score){
+            best_score = tmp_score;
+            res = move;
+        }
+    }
     return res;
 }

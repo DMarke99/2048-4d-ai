@@ -24,7 +24,7 @@ bool row_is_terminal[65536];
 size_t MAX_DEPTH = 16;
 float MONOTONICITY_BASE = 3;
 float BOARD_VALUE_BASE = 2.75;
-int LOSS_PENALTY = 10000000;
+int LOSS_PENALTY = 1000000;
 
 int popcount(u_int64_t x){
     int i = 0;
@@ -221,7 +221,7 @@ float loc_pow_val(float val){
 // score that is 0 if and only if there is a monotone loop in the square face
 // incentivises lining pieces up in order on square faces
 float row_mon_value(std::vector<board_t> arr){
-    float res = INFINITY;
+    float res = 4 * std::max(pow(MONOTONICITY_BASE, 16), 1.0); //max possible value
     
     for (int k = 0 ; k < 4; ++k){
         float mon_l = 0;
@@ -251,16 +251,17 @@ float row_mon_value(std::vector<board_t> arr){
 // determines the maximum number of guaranteed merges in a square face
 float row_merge_score(std::vector<board_t> arr){
     float res = 0;
+    float tmp;
     std::vector<board_t> tmp_arr;
     
     auto fs = {&reduce_l, &reduce_ll, &reduce_r, &reduce_rr};
     for (auto f : fs){
         tmp_arr = f(arr);
         
-        int n_merges = zero_count(tmp_arr) - zero_count(arr);
-        
-        if (n_merges > 0){
-            res = std::max(res, n_merges + row_merge_score(tmp_arr));
+        float n_merges = zero_count(tmp_arr) - zero_count(arr);
+ 
+        if ((n_merges > 0) && ((tmp = n_merges + 0.75 * row_merge_score(tmp_arr)) > res)){
+            res = tmp;
         }
     }
     return res;
@@ -463,6 +464,8 @@ board_t _shift_board(const board_t& board, const DIRECTION& d) {
         return move_d(board);
     case DD:
         return move_dd(board);
+    default:
+        return 0;
     }
 }
 
