@@ -1,5 +1,15 @@
 #include "board.hpp"
 
+#if defined( __builtin_popcountll)
+int popcount(const u_int64_t& x){
+    return __builtin_popcountll(x);
+}
+#else
+int popcount(const u_int64_t& x){
+    return _popcount(x);
+}
+#endif
+
 // declaring all global constants from header file
 bool initialized = false;
 const DIRECTION DIRECTIONS[8] = {L, LL, R, RR, U, UU, D, DD};
@@ -26,7 +36,7 @@ float MONOTONICITY_BASE = 3;
 float BOARD_VALUE_BASE = 2.75;
 int LOSS_PENALTY = 1000000;
 
-int popcount(u_int64_t x){
+int _popcount(u_int64_t x){
     int i = 0;
     for (; x; ++i){x &= (x - 1);}
     return i;

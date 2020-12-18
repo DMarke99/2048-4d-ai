@@ -8,9 +8,9 @@ void display_ai_game(int depth, float min_prob){
 
     trans_table T = trans_table({
         800, //merge weight
-        800, //blank weight
+        400, //blank weight
         20, //cubic face weight
-        10, //square face weight relative to cube
+        15, //square face weight relative to cube
         5,  //edge weight relative to square
         3,  //monotone curl weight
     });
@@ -73,7 +73,7 @@ void test_params(int depth, float min_prob, size_t n_sims){
     init_tables();
 
     std::stringstream filepath;;
-    filepath << "ADD_PATH_HERE.txt";
+    filepath << "/Users/diamor/Documents/Documents/Programming/C++ Projects/2048-4d-ai-test ";
     filepath << "(D=" << depth;
     filepath << ", P=" << std::setprecision(5) << min_prob << ").txt";
     
@@ -82,9 +82,9 @@ void test_params(int depth, float min_prob, size_t n_sims){
     
     trans_table T = trans_table({
         800, //merge weight
-        800, //blank weight
+        400, //blank weight
         20, //cubic face weight
-        10, //square face weight relative to cube
+        15, //square face weight relative to cube
         5,  //edge weight relative to square
         3,  //monotone curl weight
     });
@@ -118,7 +118,8 @@ void test_params(int depth, float min_prob, size_t n_sims){
 float test_transition(int depth, float min_prob, board_t initial_pos, size_t terminal_rank, size_t n_gens, size_t n_sims){
     srand((u_int32_t) time(NULL));
     init_tables();
-    trans_table T = trans_table({800, 800, 20, 15, 5, 1});
+    trans_table T = trans_table({800, 400, 20, 15, 5, 1});
+    T = trans_table({800, 400, 20, 15, 5, 3});
     
     float success_counter = 0;
     for (int i = 0; i < n_sims; ++i){

@@ -48,7 +48,9 @@ extern float BOARD_VALUE_BASE;
 extern int LOSS_PENALTY;
 
 void init_tables();
-int popcount(u_int64_t x);
+
+int popcount(const u_int64_t& x);
+int _popcount(u_int64_t x);
 u_int64_t selectBit(u_int64_t v, u_int32_t r);
 
 // board metadata related functions
