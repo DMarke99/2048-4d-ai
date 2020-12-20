@@ -43,6 +43,7 @@ public:
     u_int64_t b_eval_count = 0;
     trans_table(const std::vector<float>& params={800,600,20,15,5,0});
     float partial_square_score(const board_t& board) const;
+    float square_score(const board_t& board) const;
     float cube_score(const board_t& board) const;
     float partial_facet_score(const board_t& board) const;
     float facet_score(const board_t& board) const;

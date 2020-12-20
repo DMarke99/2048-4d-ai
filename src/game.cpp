@@ -6,17 +6,14 @@ void display_ai_game(int depth, float min_prob){
     srand((u_int32_t) time(NULL));
     init_tables();
 
-    /*
     trans_table T = trans_table({
         800, //merge weight
-        400, //blank weight
+        600, //blank weight
         20, //cubic face weight
-        5, //square face weight relative to cube
-        3,  //edge weight relative to square
-        2,  //monotone curl weight
+        15, //square face weight
+        5,  //edge weight
+        1   //monotone curl weight
     });
-     */
-    trans_table T = trans_table({859, 361, 41, 6, 3, 2});
 
     // generates board
     Board B = Board();
@@ -85,11 +82,11 @@ void test_params(int depth, float min_prob, size_t n_sims){
     
     trans_table T = trans_table({
         800, //merge weight
-        400, //blank weight
+        600, //blank weight
         20, //cubic face weight
-        5, //square face weight relative to cube
-        3,  //edge weight relative to square
-        2,  //monotone curl weight
+        15, //square face weight
+        5,  //edge weight
+        1   //monotone curl weight
     });
     
     for (int i = 0; i < n_sims; ++i){
