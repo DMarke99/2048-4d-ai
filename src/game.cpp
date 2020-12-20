@@ -6,14 +6,17 @@ void display_ai_game(int depth, float min_prob){
     srand((u_int32_t) time(NULL));
     init_tables();
 
+    /*
     trans_table T = trans_table({
         800, //merge weight
         400, //blank weight
         20, //cubic face weight
-        15, //square face weight relative to cube
-        5,  //edge weight relative to square
-        3,  //monotone curl weight
+        5, //square face weight relative to cube
+        3,  //edge weight relative to square
+        2,  //monotone curl weight
     });
+     */
+    trans_table T = trans_table({859, 361, 41, 6, 3, 2});
 
     // generates board
     Board B = Board();
@@ -84,9 +87,9 @@ void test_params(int depth, float min_prob, size_t n_sims){
         800, //merge weight
         400, //blank weight
         20, //cubic face weight
-        15, //square face weight relative to cube
-        5,  //edge weight relative to square
-        3,  //monotone curl weight
+        5, //square face weight relative to cube
+        3,  //edge weight relative to square
+        2,  //monotone curl weight
     });
     
     for (int i = 0; i < n_sims; ++i){
@@ -115,14 +118,13 @@ void test_params(int depth, float min_prob, size_t n_sims){
 }
 
 // estimates the success probability from a start point of reaching a given rank
-float test_transition(int depth, float min_prob, board_t initial_pos, size_t terminal_rank, size_t n_gens, size_t n_sims){
+float test_transition(int depth, float min_prob, board_t initial_pos, size_t terminal_rank, std::vector<float> params, size_t n_gens, size_t n_games, bool verbose){
     srand((u_int32_t) time(NULL));
     init_tables();
-    trans_table T = trans_table({800, 400, 20, 15, 5, 1});
-    T = trans_table({800, 400, 20, 15, 5, 3});
+    trans_table T = trans_table(params);
     
     float success_counter = 0;
-    for (int i = 0; i < n_sims; ++i){
+    for (int i = 0; i < n_games; ++i){
         // generates board
         Board B = Board(initial_pos);
 
@@ -140,11 +142,40 @@ float test_transition(int depth, float min_prob, board_t initial_pos, size_t ter
         
         if (B.rank() == terminal_rank){
             ++success_counter;
-            std::cout << "Success" << std::endl;
+            if (verbose) std::cout << "Success" << std::endl;
         } else {
-            std::cout << "Failure" << std::endl;
+            if (verbose) std::cout << "Failure" << std::endl;
         }
     }
     
-    return success_counter / n_sims;
+    return success_counter / n_games;
+}
+
+// estimates the success probability from a start point of reaching a given rank
+void test_transition_random_params(int depth, float min_prob, board_t initial_pos, size_t terminal_rank, size_t n_gens, size_t n_games, size_t n_sims){
+    srand((u_int32_t) time(NULL));
+    
+    for (int trial = 0; trial < n_sims; ++trial){
+        
+        std::vector<float> params = {
+            (float) (rand() % 1000),
+            (float) (rand() % 1000),
+            (float) (rand() % 50),
+            (float) (rand() % 10),
+            (float) (rand() % 10),
+            (float) (rand() % 10)};
+        
+        float success_rate = test_transition(depth, min_prob, initial_pos, terminal_rank, params, 2, n_games);
+        
+        std::cout << "Params:" << params << std::endl;
+        std::cout << "Success Rate:" << success_rate << std::endl;
+        std::cout << std::endl;
+    }
+}
+
+std::ostream& operator<<(std::ostream& os, const std::vector<float>& v){
+    os << "[";
+    for (int i = 0; i < v.size() - 1; ++i) os << v[i] << ", ";
+    os << v[v.size()-1] << "]";
+    return os;
 }

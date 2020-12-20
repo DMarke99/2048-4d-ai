@@ -1,6 +1,8 @@
 # pragma once
 # include "board.hpp"
 
+extern const bool FAST_HEURISTIC;
+
 //
 template <class T>
 T max4(const T& x0, const T& x1, const T& x2, const T& x3);
@@ -36,6 +38,7 @@ private:
     std::vector<std::unordered_map<board_t, emax_state>> cached_emax_values;
     float _partial_square_row[65536];
     float _partial_heuristic[65536];
+    float _aug_row_mon_vals[65536];
 public:
     u_int64_t b_eval_count = 0;
     trans_table(const std::vector<float>& params={800,600,20,15,5,0});
