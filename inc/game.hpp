@@ -8,7 +8,7 @@
 #include <fstream>
 #include <sstream>
 
-void display_ai_game(int depth, float min_prob);
+void display_ai_game(int depth, float min_prob, bool show_analytics=true);
 void test_params(int depth, float min_prob, size_t n_sims);
 float test_transition(int depth, float min_prob, board_t initial_pos, size_t terminal_rank, std::vector<float> params, size_t n_gens, size_t n_games, bool verbose=false);
 void test_transition_random_params(int depth, float min_prob, board_t initial_pos, size_t terminal_rank, size_t n_gens, size_t n_games, size_t n_sims);

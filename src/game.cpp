@@ -11,7 +11,7 @@ const std::vector<float> params = {
     2.0f,  //monotone curl weight
 };
 
-void display_ai_game(int depth, float min_prob){
+void display_ai_game(int depth, float min_prob, bool show_analytics){
     srand((u_int32_t) time(NULL));
     init_tables();
 
@@ -30,13 +30,21 @@ void display_ai_game(int depth, float min_prob){
     // outputs initial board
     std::cout << "      [[ 2048-4D ]]      " << std::endl;
     std::cout << B << std::endl;
-    std::cout << "[Moves/s:            0.0]" << std::endl;
-    std::cout << "[AvgMoves/s:         0.0]" << std::endl;
-    std::cout << "[BoardEval/s:          0]" << std::endl;
+    
+    if (show_analytics) {
+        std::cout << "      [ Analytics ]      " << std::endl;
+        std::cout << "[Moves/s:            0.0]" << std::endl;
+        std::cout << "[AvgMoves/s:         0.0]" << std::endl;
+        std::cout << "[BoardEval/s:          0]" << std::endl;
+    }
     
     // plays game
     while (B.valid_moves().size()){
-        printf("\e[16A");
+        if (show_analytics) {
+            printf("\e[17A");
+        } else {
+            printf("\e[13A");
+        }
         
         // calculates optimal move
         DIRECTION best_move = T.expectimax(B, depth, min_prob);
@@ -62,10 +70,13 @@ void display_ai_game(int depth, float min_prob){
         printf("\e[K");
         std::cout << "      [[ 2048-4D ]]      " << std::endl;
         std::cout << B << std::endl;
-        std::cout << "[Moves/s:" << std::setw(15) << std::setprecision(5) << moves_per_second << "]" << std::endl;
-        std::cout << "[AvgMoves/s:" << std::setw(12) << std::setprecision(5) << avg_moves_per_second << "]" << std::endl;
-        std::cout << "[BoardEval/s:" << std::setw(11) << board_evals_per_second << "]" << std::endl;
-
+        
+        if (show_analytics) {
+            std::cout << "      [ Analytics ]      " << std::endl;
+            std::cout << "[Moves/s:" << std::setw(15) << std::setprecision(5) << moves_per_second << "]" << std::endl;
+            std::cout << "[AvgMoves/s:" << std::setw(12) << std::setprecision(5) << avg_moves_per_second << "]" << std::endl;
+            std::cout << "[BoardEval/s:" << std::setw(11) << board_evals_per_second << "]" << std::endl;
+        }
     }
     std::cout << "Final Score: " << B.score() << std::endl;
 }
