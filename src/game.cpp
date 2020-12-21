@@ -2,21 +2,20 @@
 
 const float FPS_WINDOW = 5.0;
 
+const std::vector<float> params = {
+    800.0f, //merge weight
+    300.0f, //blank weight
+    20.0f, //cubic face weight
+    5.0f, //square face weight relative to cube
+    3.0f,  //edge weight relative to square
+    2.0f,  //monotone curl weight
+};
+
 void display_ai_game(int depth, float min_prob){
     srand((u_int32_t) time(NULL));
     init_tables();
 
-    /*
-    trans_table T = trans_table({
-        800, //merge weight
-        400, //blank weight
-        20, //cubic face weight
-        5, //square face weight relative to cube
-        3,  //edge weight relative to square
-        2,  //monotone curl weight
-    });
-     */
-    trans_table T = trans_table({859, 361, 41, 6, 3, 2});
+    trans_table T = trans_table(params);
 
     // generates board
     Board B = Board();
@@ -83,14 +82,7 @@ void test_params(int depth, float min_prob, size_t n_sims){
     std::ofstream myfile;
     myfile.open(filepath.str(), std::ios::app);
     
-    trans_table T = trans_table({
-        800, //merge weight
-        400, //blank weight
-        20, //cubic face weight
-        5, //square face weight relative to cube
-        3,  //edge weight relative to square
-        2,  //monotone curl weight
-    });
+    trans_table T = trans_table(params);
     
     for (int i = 0; i < n_sims; ++i){
         
@@ -157,25 +149,25 @@ void test_transition_random_params(int depth, float min_prob, board_t initial_po
     
     for (int trial = 0; trial < n_sims; ++trial){
         
-        std::vector<float> params = {
+        std::vector<float> _params = {
             (float) (rand() % 1000),
             (float) (rand() % 1000),
             (float) (rand() % 50),
-            (float) (rand() % 10),
-            (float) (rand() % 10),
-            (float) (rand() % 10)};
+            (float) (rand() % 20 + 1) / 4.0f,
+            (float) (rand() % 20 + 1) / 4.0f,
+            (float) (rand() % 20 + 1) / 4.0f};
         
-        float success_rate = test_transition(depth, min_prob, initial_pos, terminal_rank, params, 2, n_games);
+        float success_rate = test_transition(depth, min_prob, initial_pos, terminal_rank, _params, 2, n_games);
         
-        std::cout << "Params:" << params << std::endl;
+        std::cout << "Params:" << _params << std::endl;
         std::cout << "Success Rate:" << success_rate << std::endl;
         std::cout << std::endl;
     }
 }
 
 std::ostream& operator<<(std::ostream& os, const std::vector<float>& v){
-    os << "[";
+    os << "{";
     for (int i = 0; i < v.size() - 1; ++i) os << v[i] << ", ";
-    os << v[v.size()-1] << "]";
+    os << v[v.size()-1] << "}";
     return os;
 }
