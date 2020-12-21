@@ -75,7 +75,7 @@ void test_params(int depth, float min_prob, size_t n_sims){
     init_tables();
 
     std::stringstream filepath;;
-    filepath << "/Users/diamor/Documents/Documents/Programming/C++ Projects/2048-4d-ai-test ";
+    filepath << "/ADD/FILE/PATH/HERE/2048-4d-ai-test ";
     filepath << "(D=" << depth;
     filepath << ", P=" << std::setprecision(5) << min_prob << ").txt";
     

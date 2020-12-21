@@ -277,6 +277,7 @@ float row_merge_score(std::vector<board_t> arr){
     return res;
 }
 
+// the highest value edge in a square
 float edge_pow_value(std::vector<board_t> arr){
     return std::max({
         loc_pow_val(arr[0]) + loc_pow_val(arr[1]),
