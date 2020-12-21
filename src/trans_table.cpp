@@ -100,18 +100,30 @@ float trans_table::cube_score(const board_t& board) const {
         board_t board1 = h_board_1(board);
         board_t board2 = h_board_3(board);
         
-        float facet0 = _partial_square_row[ROW_MASK & board0] + _partial_square_row[ROW_MASK & (board0 >> 16)];
-        float facet1 = _partial_square_row[ROW_MASK & board1] + _partial_square_row[ROW_MASK & (board1 >> 16)];
-        float facet2 = _partial_square_row[ROW_MASK & board2] + _partial_square_row[ROW_MASK & (board2 >> 16)];
-
+        float square_0_0 = _partial_square_row[ROW_MASK & board0];
+        float square_0_1 = _partial_square_row[ROW_MASK & (board0 >> 16)];
+        float mon_val_0 = _aug_row_mon_vals[ROW_MASK & board0] + _aug_row_mon_vals[ROW_MASK & (board0 >> 16)];
+        
+        float square_1_0 = _partial_square_row[ROW_MASK & board1];
+        float square_1_1 = _partial_square_row[ROW_MASK & (board1 >> 16)];
+        float mon_val_1 = _aug_row_mon_vals[ROW_MASK & board1] + _aug_row_mon_vals[ROW_MASK & (board1 >> 16)];
+        
+        float square_2_0 = _partial_square_row[ROW_MASK & board2];
+        float square_2_1 = _partial_square_row[ROW_MASK & (board2 >> 16)];
+        float mon_val_2 = _aug_row_mon_vals[ROW_MASK & board2] + _aug_row_mon_vals[ROW_MASK & (board2 >> 16)];
+        
+        float facet0 = (square_0_0 + square_0_1) + params[3] * std::max(square_0_0, square_0_1) - mon_val_0;
+        float facet1 = (square_1_0 + square_1_1) + params[3] * std::max(square_1_0, square_1_1) - mon_val_1;
+        float facet2 = (square_2_0 + square_2_1) + params[3] * std::max(square_2_0, square_2_1) - mon_val_2;
+        
         return std::max(std::max(facet0, facet1), facet2);
     }
 }
 
 float trans_table::partial_facet_score(const board_t& board) const {
-    float facet1 = cube_score(0xffffffff & board);
-    float facet2 = cube_score(board >> 32);
-    return std::max(facet1, facet2);
+    float cube1 = cube_score(board >> 32);
+    float cube2 = cube_score(0xffffffff & board);
+    return std::max(cube1, cube2);
 }
 
 float trans_table::facet_score(const board_t& board) const {

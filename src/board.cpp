@@ -270,7 +270,7 @@ float row_merge_score(std::vector<board_t> arr){
         
         float n_merges = zero_count(tmp_arr) - zero_count(arr);
  
-        if ((n_merges > 0) && ((tmp = n_merges + 0 * row_merge_score(tmp_arr)) > res)){
+        if ((n_merges > 0) && ((tmp = n_merges + row_merge_score(tmp_arr)) > res)){
             res = tmp;
         }
     }
