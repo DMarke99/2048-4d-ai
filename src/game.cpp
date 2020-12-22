@@ -15,7 +15,7 @@ void display_ai_game(int depth, float min_prob, bool show_analytics){
     srand((u_int32_t) time(NULL));
     init_tables();
 
-    trans_table T = trans_table(params);
+    trans_table T(params);
 
     // generates board
     Board B = Board();
@@ -64,7 +64,7 @@ void display_ai_game(int depth, float min_prob, bool show_analytics){
         
         auto total_time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
         float avg_moves_per_second = (1000.0 * count) / total_time_elapsed;
-        int board_evals_per_second = (1000.0 * T.b_eval_count) / total_time_elapsed;
+        int board_evals_per_second = (1000.0 * T.b_eval_count.load()) / total_time_elapsed;
         
         // outputs board
         printf("\e[K");
@@ -76,6 +76,73 @@ void display_ai_game(int depth, float min_prob, bool show_analytics){
             std::cout << "[Moves/s:" << std::setw(15) << std::setprecision(5) << moves_per_second << "]" << std::endl;
             std::cout << "[AvgMoves/s:" << std::setw(12) << std::setprecision(5) << avg_moves_per_second << "]" << std::endl;
             std::cout << "[BoardEval/s:" << std::setw(11) << board_evals_per_second << "]" << std::endl;
+        }
+    }
+    std::cout << "Final Score: " << B.score() << std::endl;
+}
+
+void display_mcts_game(int n_sims, bool show_analytics){
+    srand((u_int32_t) time(NULL));
+    init_tables();
+
+    trans_table T(params);
+
+    // generates board
+    Board B = Board();
+    B.generate_piece();
+    B.generate_piece();
+    
+    std::queue<std::chrono::time_point<std::chrono::system_clock>> move_times;
+    auto start = std::chrono::system_clock::now();
+    move_times.push(start);
+    
+    float count = 0;
+    // outputs initial board
+    std::cout << "      [[ 2048-4D ]]      " << std::endl;
+    std::cout << B << std::endl;
+    
+    if (show_analytics) {
+        std::cout << "      [ Analytics ]      " << std::endl;
+        std::cout << "[Moves/s:            0.0]" << std::endl;
+        std::cout << "[AvgMoves/s:         0.0]" << std::endl;
+    }
+    
+    // plays game
+    while (B.valid_moves().size()){
+        if (show_analytics) {
+            printf("\e[16A");
+        } else {
+            printf("\e[13A");
+        }
+        
+        // calculates optimal move
+        DIRECTION best_move = T.mcts(B.board, n_sims);
+        
+        // performs best move
+        B.move(best_move);
+        
+        // reports statistics
+        auto end = std::chrono::system_clock::now();
+        move_times.push(end);
+        while (std::chrono::duration_cast<std::chrono::milliseconds>(move_times.back() - move_times.front()).count() > FPS_WINDOW * 1000) move_times.pop();
+        
+        auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(move_times.back() - move_times.front()).count();
+        float moves_per_second = (1000.0 * (move_times.size() - 1)) / time_elapsed;
+        
+        ++count;
+        
+        auto total_time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        float avg_moves_per_second = (1000.0 * count) / total_time_elapsed;
+        
+        // outputs board
+        printf("\e[K");
+        std::cout << "      [[ 2048-4D ]]      " << std::endl;
+        std::cout << B << std::endl;
+        
+        if (show_analytics) {
+            std::cout << "      [ Analytics ]      " << std::endl;
+            std::cout << "[Moves/s:" << std::setw(15) << std::setprecision(5) << moves_per_second << "]" << std::endl;
+            std::cout << "[AvgMoves/s:" << std::setw(12) << std::setprecision(5) << avg_moves_per_second << "]" << std::endl;
         }
     }
     std::cout << "Final Score: " << B.score() << std::endl;
@@ -93,7 +160,7 @@ void test_params(int depth, float min_prob, size_t n_sims){
     std::ofstream myfile;
     myfile.open(filepath.str(), std::ios::app);
     
-    trans_table T = trans_table(params);
+    trans_table T(params);
     
     for (int i = 0; i < n_sims; ++i){
         
@@ -124,7 +191,7 @@ void test_params(int depth, float min_prob, size_t n_sims){
 float test_transition(int depth, float min_prob, board_t initial_pos, size_t terminal_rank, std::vector<float> params, size_t n_gens, size_t n_games, bool verbose){
     srand((u_int32_t) time(NULL));
     init_tables();
-    trans_table T = trans_table(params);
+    trans_table T(params);
     
     float success_counter = 0;
     for (int i = 0; i < n_games; ++i){

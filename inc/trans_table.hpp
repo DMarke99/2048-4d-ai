@@ -1,9 +1,12 @@
 # pragma once
 # include "board.hpp"
+# include <future>
+# include <atomic>
 
+extern const size_t MAX_DEPTH;
 extern const bool FAST_HEURISTIC;
+extern const bool MULTITHREADED;
 
-//
 template <class T>
 T max4(const T& x0, const T& x1, const T& x2, const T& x3);
 
@@ -20,6 +23,8 @@ struct move_state {
     float emax_val;
 };
 
+typedef std::vector<std::unordered_map<board_t, emax_state>> cached_emax_states_t;
+
 // board manipulation methods used only for calculating heuristics
 board_t h_board_0(const board_t& board);
 board_t h_board_1(const board_t& board);
@@ -35,13 +40,14 @@ board_t h_board(const board_t& board, const int& h_idx);
 class trans_table {
 private:
     std::vector<float> params;
-    std::vector<std::unordered_map<board_t, emax_state>> cached_emax_values;
     float _partial_square_row[65536];
     float _partial_heuristic[65536];
     float _aug_row_mon_vals[65536];
 public:
-    u_int64_t b_eval_count = 0;
+    std::atomic<u_int64_t> b_eval_count;
     trans_table(const std::vector<float>& params={800,600,20,15,5,0});
+    
+    // heuristic based ethods
     float cube_score(const board_t& board) const;
     float partial_facet_score(const board_t& board) const;
     float facet_score(const board_t& board) const;
@@ -50,12 +56,13 @@ public:
     float non_terminal_heuristic(const board_t& board) const;
     float heuristic(const board_t& board) const;
     
-    float move_node(const board_t& board, const int& depth, const float& prob, const float& min_prob = 1e-6);
-    float expectation_node(const board_t& board, const int& depth, const float& prob, const float& min_prob = 1e-6);
+    // expectimax methods
+    float move_node(const board_t& board, const int& depth, const float& prob, cached_emax_states_t& cached_emax_values,  const float& min_prob = 1e-6);
+    float expectation_node(const board_t& board, const int& depth, const float& prob, cached_emax_states_t& cached_emax_values,  const float& min_prob = 1e-6);
+    float entry_node(const board_t& board, const int& depth, const float& prob, const float& min_prob = 1e-6);
     DIRECTION expectimax(const Board& board, const int& depth, const float& min_prob = 1e-6);
     
-    float minimax_min(const board_t& board, size_t depth, float alpha = -INFINITY, float beta = INFINITY);
-    float minimax_max(const board_t& board, size_t depth, float alpha = -INFINITY, float beta = INFINITY);
-    DIRECTION minimax(const Board& board, size_t depth);
-    DIRECTION mcts(const Board& board, size_t n_sims);
+    // monte carlo tree search
+    long long mcts_score(const Board& board, const DIRECTION& move, const size_t& n_sims);
+    DIRECTION mcts(const Board& board, const size_t& n_sims);
 };

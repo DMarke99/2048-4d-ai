@@ -42,7 +42,6 @@ extern float row_edge_val[65536];
 extern int n_row_merges[65536];
 extern bool row_is_terminal[65536];
 
-extern size_t MAX_DEPTH;
 extern float MONOTONICITY_BASE;
 extern float BOARD_VALUE_BASE;
 extern int LOSS_PENALTY;

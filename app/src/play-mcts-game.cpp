@@ -2,6 +2,6 @@
 const bool SHOW_ANALYTICS = true;
 
 int main() {
-    display_ai_game(6, 0.02, SHOW_ANALYTICS);
+    display_mcts_game(2000, SHOW_ANALYTICS);
     return 0;
 }

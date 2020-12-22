@@ -1,6 +1,8 @@
 #include "trans_table.hpp"
 
+const size_t MAX_DEPTH = 16;
 const bool FAST_HEURISTIC = false;
+const bool MULTITHREADED = true;
 
 template <class T>
 T max4(const T& x0, const T& x1, const T& x2, const T& x3){
@@ -66,11 +68,9 @@ board_t facet(const board_t& board, const int& f_idx){
     }
 }
 
-trans_table::trans_table(const std::vector<float>& params){
+trans_table::trans_table(const std::vector<float>& params) : b_eval_count(0) {
     this->params = params;
     this->params[3] = this->params[3] - 1;
-    
-    cached_emax_values = std::vector<std::unordered_map<board_t, emax_state>>(MAX_DEPTH);
     
     std::vector<board_t> arr;
     board_t row;
@@ -171,7 +171,7 @@ float trans_table::heuristic(const board_t& board) const {
 }
 
 // move node in expectimax
-float trans_table::move_node(const board_t& board, const int& depth, const float& prob, const float& min_prob){
+float trans_table::move_node(const board_t& board, const int& depth, const float& prob, cached_emax_states_t& cached_emax_values, const float& min_prob){
     ++b_eval_count;
     float res = -INFINITY;
 
@@ -187,7 +187,7 @@ float trans_table::move_node(const board_t& board, const int& depth, const float
     while (move_mask){
         
         if (move_mask & 1) {
-            res = std::max(res, expectation_node(_shift_board(board, DIRECTIONS[idx]), depth, prob, min_prob));
+            res = std::max(res, expectation_node(_shift_board(board, DIRECTIONS[idx]), depth, prob, cached_emax_values, min_prob));
         }
         
         ++idx;
@@ -198,7 +198,7 @@ float trans_table::move_node(const board_t& board, const int& depth, const float
 }
 
 // expectation node in expectimax
-float trans_table::expectation_node(const board_t& board, const int& depth, const float& prob, const float& min_prob){
+float trans_table::expectation_node(const board_t& board, const int& depth, const float& prob, cached_emax_states_t& cached_emax_values, const float& min_prob){
     std::unordered_map<board_t, emax_state>::iterator address;
     ++b_eval_count;
     
@@ -237,10 +237,10 @@ float trans_table::expectation_node(const board_t& board, const int& depth, cons
             if (free_tiles & 1){
                 
                 // places 2 in free tile
-                res += 0.9 * move_node(board | randomSetBit, depth-1, 0.9 * factor, min_prob);
+                res += 0.9 * move_node(board | randomSetBit, depth-1, 0.9 * factor, cached_emax_values, min_prob);
                 
                 // places 4 in free tile
-                res += 0.1 * move_node(board | (randomSetBit << 1), depth-1, 0.1 * factor, min_prob);
+                res += 0.1 * move_node(board | (randomSetBit << 1), depth-1, 0.1 * factor, cached_emax_values, min_prob);
                 
             }
             
@@ -256,9 +256,13 @@ float trans_table::expectation_node(const board_t& board, const int& depth, cons
     }
 }
 
-DIRECTION trans_table::expectimax(const Board& board, const int& depth, const float& p_min){
-    
-    cached_emax_values = std::vector<std::unordered_map<board_t, emax_state>>(MAX_DEPTH);
+// entry node  used in multithreaded expectimax
+float trans_table::entry_node(const board_t& board, const int& depth, const float& prob, const float& min_prob){
+    cached_emax_states_t cached_emax_values = cached_emax_states_t(MAX_DEPTH);
+    return expectation_node(board, depth, 1.0, cached_emax_values, min_prob);
+}
+
+DIRECTION trans_table::expectimax(const Board& board, const int& depth, const float& min_prob){
     
     std::vector<DIRECTION> moves = board.valid_moves();
     assert (moves.size() > 0);
@@ -274,11 +278,33 @@ DIRECTION trans_table::expectimax(const Board& board, const int& depth, const fl
     
     // returns argmax
     std::vector<move_state> move_scores;
-    
-    for (auto move : moves){
-        float next_score = expectation_node(_shift_board(board.board, move), depth, 1.0, p_min);
+
+    if (MULTITHREADED) {
         
-        move_scores.push_back({move, next_score});
+        std::unordered_map<DIRECTION, std::future<float>> parallel_move_scores;
+        
+        for (auto move : moves){
+    
+            std::future<float> fut = std::async(
+                std::launch::async, &trans_table::entry_node, this, _shift_board(board.board, move), depth, 1.0, min_prob);
+            
+            parallel_move_scores[move] = std::move(fut);
+        }
+        
+        for (auto move : moves){
+            move_scores.push_back({move, parallel_move_scores[move].get()});
+        }
+
+    } else {
+        
+        cached_emax_states_t cached_emax_values = cached_emax_states_t(MAX_DEPTH);
+        
+        for (auto move : moves){
+            
+            float next_score = expectation_node(_shift_board(board.board, move), depth, 1.0, cached_emax_values, min_prob);
+            
+            move_scores.push_back({move, next_score});
+        }
     }
     
     float best_score = -INFINITY;
@@ -294,123 +320,67 @@ DIRECTION trans_table::expectimax(const Board& board, const int& depth, const fl
     return res;
 }
 
-
-float trans_table::minimax_min(const board_t& board, size_t depth, float alpha, float beta){
+long long trans_table::mcts_score(const Board& board, const DIRECTION& move, const size_t& n_sims){
+    long long tmp_score = 0;
     
-    float res = INFINITY;
-    board_t free_tiles = is_blank(board);
-    
-    board_t randomSetBit = 1;
-    
-    while (free_tiles){
-        if (free_tiles & 1){
-            
-            // places 2 in free tile
-            res = std::min(res, minimax_max(board | randomSetBit, depth-1, alpha, beta));
-            beta = std::min(beta, res);
-            if (beta <= alpha) return res;
-            
-            // places 4 in free tile
-            res = std::min(res, minimax_max(board | (randomSetBit << 1), depth-1, alpha, beta));
-            beta = std::min(beta, res);
-            if (beta <= alpha) return res;
-
+    for (int i = 0; i < n_sims; ++i){
+        Board tmp_board = board;
+        tmp_board.move(move);
+        tmp_board.generate_piece();
+        
+        while (!is_terminal(tmp_board.board)){
+            tmp_board.move(tmp_board.random_move());
         }
-        
-        randomSetBit <<= 4;
-        free_tiles >>= 4;
+        tmp_score += tmp_board.score();
     }
-
-    return res;
-};
-
-float trans_table::minimax_max(const board_t& board, size_t depth, float alpha, float beta){
     
-    float res = -INFINITY;
+    return tmp_score;
+}
 
-    // pick move with greatest expected utility
-    int idx = 0;
-    u_int16_t move_mask = _valid_move_mask(board);
-
-    // if there are no valid moves, return heuristic
-    if ((move_mask == 0) or (depth <= 0)){
-        return heuristic(board);
-    }
-
-    
-    while (move_mask){
-        
-        if (move_mask & 1) {
-            res = std::max(res, minimax_min(_shift_board(board, DIRECTIONS[idx]), depth, alpha, beta));
-        }
-        
-        ++idx;
-        move_mask >>= 1;
-    }
-
-    return res;
-    
-};
-
-DIRECTION trans_table::minimax(const Board& board, size_t depth){
+DIRECTION trans_table::mcts(const Board& board, const size_t& n_sims){
     std::vector<DIRECTION> moves = board.valid_moves();
     assert (moves.size() > 0);
     
-    // forces board to make 65536 if it can
-    if (_count(board.board, 15) == 2){
+    DIRECTION res = moves[0];
+    
+    if (MULTITHREADED) {
+        
+        std::unordered_map<DIRECTION, std::future<long long>> parallel_move_scores;
+        
         for (auto move : moves){
-            if (_count(_shift_board(board.board, move), 15) == 1){
-                return move;
-            }
-        }
-    }
     
-    // returns argmax
-    std::vector<move_state> move_scores;
-    
-    for (auto move : moves){
-        float next_score = minimax_min(_shift_board(board.board, move), depth);
-        move_scores.push_back({move, next_score});
-    }
-    
-    float best_score = -INFINITY;
-    DIRECTION res = moves[0];
-    
-    for (auto ms : move_scores){
-        if (ms.emax_val > best_score){
-            best_score = ms.emax_val;
-            res = ms.move;
-        }
-    }
-    
-    return res;
-};
-
-DIRECTION trans_table::mcts(const Board& board, size_t n_sims){
-    std::vector<DIRECTION> moves = board.valid_moves();
-    assert (moves.size() > 0);
-    
-    int best_score = 0;
-    DIRECTION res = moves[0];
-    
-    for (auto move : moves){
-        
-        int tmp_score = 0;
-        
-        for (int i = 0; i < n_sims/moves.size(); ++i){
-            Board tmp_board = board;
-            tmp_board.move(move);
-            tmp_board.generate_piece();
+            std::future<long long> fut = std::async(
+                std::launch::async, &trans_table::mcts_score, this, board,  move, n_sims);
             
-            while (!is_terminal(tmp_board.board)){
-                tmp_board.move(tmp_board.random_move());
+            parallel_move_scores[move] = std::move(fut);
+        }
+        
+        long long best_score = 0;
+        
+        for (auto move : moves){
+            long long tmp_score = parallel_move_scores[move].get();
+            
+            if (tmp_score > best_score){
+                best_score = tmp_score;
+                res = move;
             }
-            tmp_score += tmp_board.score();
         }
-        if (tmp_score > best_score){
-            best_score = tmp_score;
-            res = move;
+        
+        return res;
+        
+    } else {
+        long long best_score = 0;
+        
+        for (auto move : moves){
+            
+            long long tmp_score = mcts_score(board, move, n_sims);
+            
+            if (tmp_score > best_score){
+                best_score = tmp_score;
+                res = move;
+            }
         }
+        
+        return res;
     }
-    return res;
 }

@@ -31,7 +31,6 @@ float row_edge_val[65536];
 int n_row_merges[65536];
 bool row_is_terminal[65536];
 
-size_t MAX_DEPTH = 16;
 float MONOTONICITY_BASE = 3;
 float BOARD_VALUE_BASE = 2.75;
 int LOSS_PENALTY = 1000000;
