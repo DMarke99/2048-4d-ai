@@ -21,5 +21,10 @@ cmake --build build
 to build the project. Any relatively recent C++ compiler should be able to build the output. To run the game execute:
 
 ```
-bin/2048-ai-game
+bin/play-ai-game
+```
+For comparison, to run a game with moves determined by Monte Carlo Tree Search, execute:
+
+```
+bin/play-mcts-game
 ```
