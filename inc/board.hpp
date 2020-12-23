@@ -137,6 +137,42 @@ constexpr board_t swap_2_3(const board_t& board){
     return a1 | (a2 >> 4) | (a3 << 4);
 }
 
+// flips locations on index 0
+constexpr board_t flip_0(const board_t& board){
+    return (board >> 32) | (board << 32);
+}
+
+// flips locations on index 1
+constexpr board_t flip_1(const board_t& board){
+    return ((board & 0xffff0000ffff0000) >> 16) | ((board & 0x0000ffff0000ffff) << 16);
+}
+
+// flips locations on index 0
+constexpr board_t flip_2(const board_t& board){
+    return ((board & 0xff00ff00ff00ff00) >> 8) | ((board & 0x00ff00ff00ff00ff) << 8);
+}
+
+// swaps 2nd and 3rd indexes
+constexpr board_t flip_3(const board_t& board){
+    return ((board & 0xf0f0f0f0f0f0f0f0) >> 4) | ((board & 0x0f0f0f0f0f0f0f0f) << 4);
+}
+
+// swaps 2nd and 3rd indexes
+constexpr board_t flip(const board_t& board, const size_t& idx){
+    switch (idx){
+        case 0:
+            return flip_0(board);
+        case 1:
+            return flip_1(board);
+        case 2:
+            return flip_2(board);
+        case 3:
+            return flip_3(board);
+        default:
+            return board;
+    }
+}
+
 constexpr size_t _rank(const board_t& board) {
     size_t res = 0;
     board_t tmp = board;

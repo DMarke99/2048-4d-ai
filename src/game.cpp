@@ -3,7 +3,7 @@
 const float FPS_WINDOW = 5.0;
 
 const std::vector<float> params = {
-    800.0f, //merge weight
+    50.0f, //merge weight
     300.0f, //blank weight
     20.0f, //cubic face weight
     5.0f, //square face weight relative to cube

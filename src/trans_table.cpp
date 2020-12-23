@@ -1,6 +1,7 @@
 #include "trans_table.hpp"
 
 const size_t MAX_DEPTH = 16;
+const bool REORGANIZE_BOARD = true;
 const bool FAST_HEURISTIC = false;
 const bool ALL_CUBES = true;
 const bool MULTITHREADED = true;
@@ -69,9 +70,104 @@ board_t facet(const board_t& board, const int& f_idx){
     }
 }
 
+// rotates and flips board in 4d to an equivalent board to make it easier to calculate heuristic
+board_t reorganize(const board_t& board, const size_t& level){
+    board_t res = board;
+    size_t tmp_size;
+    board_t tmp_board;
+    switch (level){
+            
+        // Corner optimisation
+        case 0: {
+            
+            // finds location of highest value piece
+            size_t i = 0;
+            size_t max_rank = 0;
+            size_t max_rank_loc = 0;
+            for (board_t tmp = res; tmp; tmp >>= 4, ++i){
+                if ((tmp_size = tmp & 0xf) > max_rank){
+                    max_rank = tmp_size;
+                    max_rank_loc = i;
+                }
+            }
+            
+            // moves highest value piece to left-most bit
+            int idx = 0;
+            for (; max_rank_loc; max_rank_loc >>= 1, ++idx){
+                if (max_rank_loc & 1) res = flip(res, idx);
+            }
+        }
+            
+        // Edge rearrangement
+        case 1: {
+            
+            // finds location of highest value piece adjacent to location [0,0,0,0]
+            size_t second_rank = (res >> 56) & 0xf;
+            size_t second_rank_loc = 1;
+            
+            if ((tmp_size = (res >> 52) & 0xf) > second_rank){
+                second_rank = tmp_size;
+                second_rank_loc = 2;
+            }
+            
+            if ((tmp_size = (res >> 44) & 0xf) > second_rank){
+                second_rank = tmp_size;
+                second_rank_loc = 4;
+            }
+            
+            if ((tmp_size = (res >> 28) & 0xf) > second_rank){
+                second_rank = tmp_size;
+                second_rank_loc = 8;
+            }
+            
+            // moves piece to second-left-most bit
+            switch (second_rank_loc) {
+                case 2: res = swap_2_3(res); break;
+                case 4: res = swap_1_3(res); break;
+                case 8: res = swap_0_3(res); break;
+                default: break;
+            }
+        }
+            
+        // Square rearrangement
+        case 2: {
+            
+            // finds highest value edge that forms a square with [0,0,0,.] and rotates it into edge [0,0,1,.]
+            size_t edge_val = row_val[(res >> 48) & 0xff];
+            size_t edge_idx = 0;
+            
+            if ((tmp_board = row_val[(res >> 40) & 0xff]) > edge_val){
+                edge_val = tmp_board;
+                edge_idx = 1;
+            }
+        
+            if ((tmp_board = row_val[(res >> 24) & 0xff]) > edge_val){
+                edge_val = tmp_board;
+                edge_idx = 2;
+            }
+            
+            // moves piece to second-left-most bit
+            switch (edge_idx) {
+                case 1: res = swap_1_2(res); break;
+                case 2: res = swap_0_2(res); break;
+                default: break;
+            }
+        }
+            
+        // Cube rearrangement
+        case 3: {
+            
+            // finds highest value square that forms a cube with [0,0,.,.] and rotates it into square [0,1,.,.]
+            if (row_val[(res >> 16) & 0xffff] > row_val[(res >> 32) & 0xffff]) res = swap_0_1(res);
+            return res;
+        };
+        default: return res;
+    }
+}
+
 trans_table::trans_table(const std::vector<float>& params) : b_eval_count(0) {
     this->params = params;
-    this->params[3] = this->params[3] - 1;
+    if (!REORGANIZE_BOARD) this->params[3] = this->params[3] - 1;
     
     std::vector<board_t> arr;
     board_t row;
@@ -83,6 +179,8 @@ trans_table::trans_table(const std::vector<float>& params) : b_eval_count(0) {
                     row = arr_to_row_transition(arr);
                     
                     _partial_square_row[row] = params[2] * (row_pow_val[row] + params[4] * row_edge_val[row]);
+                    
+                    _aug_partial_square_row[row] = params[3] * _partial_square_row[row];
                     
                     _partial_heuristic[row] = (FAST_HEURISTIC ? 3 : 1) * (params[0] * n_row_merges[row] + params[1] * zero_count(arr));
                     
@@ -164,7 +262,31 @@ float trans_table::partial_row_heuristic(const board_t& board) const {
 }
 
 float trans_table::non_terminal_heuristic(const board_t& board) const {
-    return facet_score(board) + partial_row_heuristic(board);
+    if (REORGANIZE_BOARD) {
+        return reorganized_heuristic(reorganize(board, 0));
+    } else {
+        return facet_score(board) + partial_row_heuristic(board);
+    }
+}
+
+float trans_table::reorganized_heuristic(const board_t& board) const {
+    return _aug_partial_square_row[ROW_MASK & (board >> 48)]
+    + _partial_square_row[ROW_MASK & (board >> 32)]
+    - _aug_row_mon_vals[ROW_MASK & (board >> 48)]
+    - _aug_row_mon_vals[ROW_MASK & (board >> 32)]
+    + secondary_cube_heuristic(board);
+}
+
+float trans_table::secondary_cube_heuristic(const board_t& board) const {
+    board_t board0 = board;
+    board_t board1 = h_board_1(board);
+    board_t board2 = h_board_3(board);
+    
+    float score0 = _partial_heuristic[ROW_MASK & board0] + _partial_heuristic[ROW_MASK & (board0 >> 16)];
+    float score1 = _partial_heuristic[ROW_MASK & board1] + _partial_heuristic[ROW_MASK & (board1 >> 16)];
+    float score2 = _partial_heuristic[ROW_MASK & board2] + _partial_heuristic[ROW_MASK & (board2 >> 16)];
+    
+    return 6 * std::max(std::max(score0, score1), score2);
 }
 
 float trans_table::heuristic(const board_t& board) const {
