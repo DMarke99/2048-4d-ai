@@ -33,12 +33,12 @@ int main() {
     
     std::cout << "Merge Weight 50" << std::endl;
     
-    std::cout << "Hardest Transition 6 steps harder 8 tiles spawned" << std::endl;
-    std::cout << std::setprecision(4) << test_transition(6, 0.05, 0xFECDBA, 16, params, 8, 100, true) << std::endl;
+    std::cout << "Hardest Transition 4 steps harder 6 tiles spawned" << std::endl;
+    std::cout << std::setprecision(4) << test_transition(6, 0.01, 0xFECDBA89, 16, params, 6, 100, true) << std::endl;
     
     
-    std::cout << "2nd Hardest Transition 6 steps harder 8 tiles spawned" << std::endl;
-    std::cout << std::setprecision(4) << test_transition(6, 0.05, 0xEDBCA9, 15, params, 8, 100, true) << std::endl;
+    std::cout << "2nd Hardest Transition 4 steps harder 6 tiles spawned" << std::endl;
+    std::cout << std::setprecision(4) << test_transition(6, 0.01, 0xEDBCA978, 15, params, 6, 100, true) << std::endl;
     
 
     //std::cout << "Last transition 4 steps harder augmented heuristic" << std::endl;

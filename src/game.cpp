@@ -1,6 +1,7 @@
 #include "game.hpp"
 
-const float FPS_WINDOW = 5.0;
+const float FPS_WINDOW = 5.0; // window used to estimate current FPS (seconds)
+const float MIN_FRAME_LENGTH = 0.00; // minimum time between frames (seconds)
 
 const std::vector<float> PARAMS = {
     50.0f, //merge weight
@@ -51,6 +52,9 @@ void display_ai_game(int depth, float min_prob, bool show_analytics){
         
         // performs best move
         B.move(best_move);
+        
+        // enforces minimum frame length
+        while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - move_times.back()).count() < 1000 * MIN_FRAME_LENGTH){};
         
         // reports statistics
         auto end = std::chrono::system_clock::now();
