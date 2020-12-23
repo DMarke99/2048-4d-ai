@@ -2,6 +2,7 @@
 
 const size_t MAX_DEPTH = 16;
 const bool FAST_HEURISTIC = false;
+const bool ALL_CUBES = true;
 const bool MULTITHREADED = true;
 
 template <class T>
@@ -82,7 +83,7 @@ trans_table::trans_table(const std::vector<float>& params) : b_eval_count(0) {
                     row = arr_to_row_transition(arr);
                     
                     _partial_square_row[row] = params[2] * (row_pow_val[row] + params[4] * row_edge_val[row]);
-
+                    
                     _partial_heuristic[row] = (FAST_HEURISTIC ? 3 : 1) * (params[0] * n_row_merges[row] + params[1] * zero_count(arr));
                     
                     _aug_row_mon_vals[row] = params[5] * row_mon_vals[row];
@@ -125,18 +126,18 @@ float trans_table::cube_score(const board_t& board) const {
 
 float trans_table::partial_facet_score(const board_t& board) const {
     float cube1 = cube_score(board >> 32);
-    float cube2 = cube_score(0xffffffff & board);
+    float cube2 = cube_score(CUBE_MASK & board);
     return std::max(cube1, cube2);
 }
 
 float trans_table::facet_score(const board_t& board) const {
-    if (FAST_HEURISTIC) {
-        return std::max(partial_facet_score(board), partial_facet_score(swap_0_1(board)));
-    } else {
+    if (ALL_CUBES) {
         return max4(partial_facet_score(board),
         partial_facet_score(swap_0_1(board)),
         partial_facet_score(swap_0_2(board)),
         partial_facet_score(swap_0_3(board)));
+    } else {
+        return partial_facet_score(board);
     }
 }
 
@@ -184,16 +185,13 @@ float trans_table::move_node(const board_t& board, const int& depth, const float
         return heuristic(board);
     }
     
-    while (move_mask){
-        
+    // iterates over valid move set
+    for (int i = 0; move_mask; ++i, move_mask >>= 1) {
         if (move_mask & 1) {
-            res = std::max(res, expectation_node(_shift_board(board, DIRECTIONS[idx]), depth, prob, cached_emax_values, min_prob));
+            res = std::max(res, expectation_node(_shift_board(board, DIRECTIONS[i]), depth, prob, cached_emax_values, min_prob));
         }
-        
-        ++idx;
-        move_mask >>= 1;
     }
-
+    
     return res;
 }
 
@@ -231,9 +229,10 @@ float trans_table::expectation_node(const board_t& board, const int& depth, cons
         
         int n_empty_tiles = popcount(free_tiles);
         float factor = prob / n_empty_tiles;
-        board_t randomSetBit = 1;
         
-        while (free_tiles){
+        // iterates over empty tiles
+        for (board_t randomSetBit = 1; free_tiles; free_tiles >>= 4, randomSetBit <<= 4){
+            
             if (free_tiles & 1){
                 
                 // places 2 in free tile
@@ -243,10 +242,6 @@ float trans_table::expectation_node(const board_t& board, const int& depth, cons
                 res += 0.1 * move_node(board | (randomSetBit << 1), depth-1, 0.1 * factor, cached_emax_values, min_prob);
                 
             }
-            
-            randomSetBit <<= 4;
-            free_tiles >>= 4;
-            
         }
         
         res /= n_empty_tiles;

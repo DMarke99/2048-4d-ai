@@ -11,29 +11,70 @@ int popcount(const u_int64_t& x){
 #endif
 
 // declaring all global constants from header file
-bool initialized = false;
 const DIRECTION DIRECTIONS[8] = {L, LL, R, RR, U, UU, D, DD};
 const board_t ROW_MASK = 0x000000000000ffff;
 const board_t COL_MASK = 0x000f000f000f000f;
-board_t l_move_table[65536];
-board_t ll_move_table[65536];
-board_t r_move_table[65536];
-board_t rr_move_table[65536];
-board_t u_move_table[65536];
-board_t uu_move_table[65536];
-board_t d_move_table[65536];
-board_t dd_move_table[65536];
-board_t row_to_col[65536];
-int row_val[65536];
-float row_mon_vals[65536];
-float row_pow_val[65536];
-float row_edge_val[65536];
-int n_row_merges[65536];
-bool row_is_terminal[65536];
+const board_t CUBE_MASK = 0x00000000ffffffff;
 
-float MONOTONICITY_BASE = 3;
-float BOARD_VALUE_BASE = 2.75;
-int LOSS_PENALTY = 1000000;
+const float MONOTONICITY_BASE = 3;
+const float BOARD_VALUE_BASE = 2.75;
+const int LOSS_PENALTY = 1000000;
+
+// methods used to construct constant arrays
+template<class T>
+constexpr std::array<T, 65536> func_to_init_vector(T (*f)(std::vector<board_t>)){
+    std::array<T, 65536> res;
+
+    for (board_t x0 = 0; x0 < 16; ++x0){
+        for (board_t x1 = 0; x1 < 16; ++x1){
+            for (board_t x2 = 0; x2 < 16; ++x2){
+                for (board_t x3 = 0; x3 < 16; ++x3){
+                    board_t row = arr_to_row_transition({x0, x1, x2, x3});
+                    res[row] = f({x0, x1, x2, x3});
+                }
+            }
+        }
+    }
+    
+    return res;
+}
+
+template<class T>
+constexpr std::array<T, 65536> init_map_reduce(T (*f)(board_t)){
+    std::array<T, 65536> res;
+
+    for (board_t x0 = 0; x0 < 16; ++x0){
+        for (board_t x1 = 0; x1 < 16; ++x1){
+            for (board_t x2 = 0; x2 < 16; ++x2){
+                for (board_t x3 = 0; x3 < 16; ++x3){
+                    board_t row = arr_to_row_transition({x0, x1, x2, x3});
+                    res[row] = f(x0) + f(x1) + f(x2) + f(x3);
+                }
+            }
+        }
+    }
+    
+    return res;
+}
+
+// metadata for board transitions
+const std::array<board_t, 65536> l_move_table = func_to_init_vector<board_t>([](std::vector<board_t> arr) -> board_t {return arr_to_row_transition(reduce_l(arr));});
+const std::array<board_t, 65536> ll_move_table = func_to_init_vector<board_t>([](std::vector<board_t> arr) -> board_t {return arr_to_row_transition(reduce_ll(arr));});
+const std::array<board_t, 65536> r_move_table = func_to_init_vector<board_t>([](std::vector<board_t> arr) -> board_t {return arr_to_row_transition(reduce_r(arr));});
+const std::array<board_t, 65536> rr_move_table = func_to_init_vector<board_t>([](std::vector<board_t> arr) -> board_t {return arr_to_row_transition(reduce_rr(arr));});
+const std::array<board_t, 65536> u_move_table = func_to_init_vector<board_t>([](std::vector<board_t> arr) -> board_t {return arr_to_col_transition(reduce_l(arr));});
+const std::array<board_t, 65536> uu_move_table = func_to_init_vector<board_t>([](std::vector<board_t> arr) -> board_t {return arr_to_col_transition(reduce_ll(arr));});
+const std::array<board_t, 65536> d_move_table = func_to_init_vector<board_t>([](std::vector<board_t> arr) -> board_t {return arr_to_col_transition(reduce_r(arr));});
+const std::array<board_t, 65536> dd_move_table = func_to_init_vector<board_t>([](std::vector<board_t> arr) -> board_t {return arr_to_col_transition(reduce_rr(arr));});
+const std::array<board_t, 65536> row_to_col = func_to_init_vector<board_t>([](std::vector<board_t> arr) -> board_t {return arr_to_col_transition(arr);});
+
+// metadata for board scoring
+const std::array<int, 65536> row_val = init_map_reduce<int>([](board_t val) -> int {return loc_val(val);});
+const std::array<float, 65536> row_pow_val = init_map_reduce<float>([](board_t val) -> float {return loc_pow_val(val);});
+const std::array<float, 65536> row_edge_val = func_to_init_vector<float>([](std::vector<board_t> arr) -> float {return edge_pow_value(arr);});
+const std::array<float, 65536> row_mon_vals = func_to_init_vector<float>([](std::vector<board_t> arr) -> float {return row_mon_value(arr);});
+const std::array<int, 65536> n_row_merges = func_to_init_vector<int>([](std::vector<board_t> arr) -> int {return row_merge_score(arr);});
+const std::array<bool, 65536> row_is_terminal = func_to_init_vector<bool>([](std::vector<board_t> arr) -> bool {return is_terminal_row(arr);});
 
 int _popcount(u_int64_t x){
     int i = 0;
@@ -93,71 +134,6 @@ std::vector<board_t> roll_array(std::vector<board_t> arr){
     arr.erase (arr.begin());
     arr.emplace_back(tmp);
     return arr;
-}
-
-// turns 0xA000B000C000D into 0xABCD
-board_t col_to_row(const board_t& col) {
-    return ((col >> 36) | (col >> 24) | (col >> 12) | col ) & 0xffff;
-}
-
-// turns 0x0123456789ABCDEF into 048C159D26AE37BF
-board_t transpose(const board_t& board){
-    board_t a1 = board & 0xF0F00F0FF0F00F0FULL;
-    board_t a2 = board & 0x0000F0F00000F0F0ULL;
-    board_t a3 = board & 0x0F0F00000F0F0000ULL;
-    board_t a = a1 | (a2 << 12) | (a3 >> 12);
-    board_t b1 = a & 0xFF00FF0000FF00FFULL;
-    board_t b2 = a & 0x00FF00FF00000000ULL;
-    board_t b3 = a & 0x00000000FF00FF00ULL;
-    return b1 | (b2 >> 24) | (b3 << 24);
-}
-
-// swaps 0th and 1st indexes
-board_t swap_0_1(const board_t& board){
-    board_t a1 = board & 0xffff00000000ffff;
-    board_t a2 = board & 0x0000ffff00000000;
-    board_t a3 = board & 0x00000000ffff0000;
-    return a1 | (a2 >> 16) | (a3 << 16);
-}
-
-// swaps 0th and 2nd indexes
-board_t swap_0_2(const board_t& board){
-    board_t a1 = board & 0xff00ff0000ff00ff;
-    board_t a2 = board & 0x00ff00ff00000000;
-    board_t a3 = board & 0x00000000ff00ff00;
-    return a1 | (a2 >> 24) | (a3 << 24);
-}
-
-// swaps 0th and 3rd indexes
-board_t swap_0_3(const board_t& board){
-    board_t a1 = board & 0xf0f0f0f00f0f0f0f;
-    board_t a2 = board & 0x0f0f0f0f00000000;
-    board_t a3 = board & 0x00000000f0f0f0f0;
-    return a1 | (a2 >> 28) | (a3 << 28);
-}
-
-// swaps 1st and 2nd indexes
-board_t swap_1_2(const board_t& board){
-    board_t a1 = board & 0xff0000ffff0000ff;
-    board_t a2 = board & 0x00ff000000ff0000;
-    board_t a3 = board & 0x0000ff000000ff00;
-    return a1 | (a2 >> 8) | (a3 << 8);
-}
-
-// swaps 1st and 3rd indexes
-board_t swap_1_3(const board_t& board){
-    board_t a1 = board & 0xf0f00f0ff0f00f0f;
-    board_t a2 = board & 0x0f0f00000f0f0000;
-    board_t a3 = board & 0x0000f0f00000f0f0;
-    return a1 | (a2 >> 12) | (a3 << 12);
-}
-
-// swaps 2nd and 3rd indexes
-board_t swap_2_3(const board_t& board){
-    board_t a1 = board & 0xf00ff00ff00ff00f;
-    board_t a2 = board & 0x0f000f000f000f00;
-    board_t a3 = board & 0x00f000f000f000f0;
-    return a1 | (a2 >> 4) | (a3 << 4);
 }
 
 //performs L move on one row
@@ -286,46 +262,6 @@ float edge_pow_value(std::vector<board_t> arr){
     });
 }
 
-void init_tables(){
-    if (!initialized){
-        std::vector<board_t> arr;
-        board_t row, col;
-        
-        for (board_t x0 = 0; x0 < 16; ++x0){
-            for (board_t x1 = 0; x1 < 16; ++x1){
-                for (board_t x2 = 0; x2 < 16; ++x2){
-                    for (board_t x3 = 0; x3 < 16; ++x3){
-                        arr = {x0, x1, x2, x3};
-                        row = arr_to_row_transition(arr);
-                        col = arr_to_col_transition(arr);
-                        
-                        // metadata for board transitions
-                        l_move_table[row] = arr_to_row_transition(reduce_l(arr));
-                        ll_move_table[row] = arr_to_row_transition(reduce_ll(arr));
-                        r_move_table[row] = arr_to_row_transition(reduce_r(arr));
-                        rr_move_table[row] = arr_to_row_transition(reduce_rr(arr));
-                        u_move_table[row] = arr_to_col_transition(reduce_l(arr));
-                        uu_move_table[row] = arr_to_col_transition(reduce_ll(arr));
-                        d_move_table[row] = arr_to_col_transition(reduce_r(arr));
-                        dd_move_table[row] = arr_to_col_transition(reduce_rr(arr));
-                        row_to_col[row] = col;
-                        
-                        // metadata for board scoring
-                        row_val[row] = loc_val(x0) + loc_val(x1) + loc_val(x2) + loc_val(x3);
-                        row_pow_val[row] = loc_pow_val(x3) + loc_pow_val(x2) + loc_pow_val(x1) + loc_pow_val(x0);
-                        row_edge_val[row] = edge_pow_value(arr);
-                        row_mon_vals[row] = row_mon_value(arr);
-                        n_row_merges[row] = row_merge_score(arr);
-                        row_is_terminal[row] = is_terminal_row(arr);
-                    }
-                }
-            }
-        }
-        
-        initialized = true;
-    }
-}
-
 bool rows_are_terminal(const board_t& board){
     return row_is_terminal[ROW_MASK & board] &&
     row_is_terminal[ROW_MASK & (board >> 16)] &&
@@ -392,120 +328,13 @@ void Board::set(const size_t& x0, const size_t& x1, const size_t& x2, const size
     board = _set(board, x0, x1, x2, x3, val);
 }
 
-board_t move_l(const board_t& board){
-    board_t board0 = l_move_table[ROW_MASK & board];
-    board_t board1 = l_move_table[ROW_MASK & (board >> 16)] << 16;
-    board_t board2 = l_move_table[ROW_MASK & (board >> 32)] << 32;
-    board_t board3 = l_move_table[ROW_MASK & (board >> 48)] << 48;
-    return board0 | board1 | board2 | board3;
-}
-
-board_t move_ll(const board_t& board){
-    board_t board0 = ll_move_table[ROW_MASK & board];
-    board_t board1 = ll_move_table[ROW_MASK & (board >> 16)] << 16;
-    board_t board2 = ll_move_table[ROW_MASK & (board >> 32)] << 32;
-    board_t board3 = ll_move_table[ROW_MASK & (board >> 48)] << 48;
-    return board0 | board1 | board2 | board3;
-}
-
-board_t move_r(const board_t& board){
-    board_t board0 = r_move_table[ROW_MASK & board];
-    board_t board1 = r_move_table[ROW_MASK & (board >> 16)] << 16;
-    board_t board2 = r_move_table[ROW_MASK & (board >> 32)] << 32;
-    board_t board3 = r_move_table[ROW_MASK & (board >> 48)] << 48;
-    return board0 | board1 | board2 | board3;
-}
-
-board_t move_rr(const board_t& board){
-    board_t board0 = rr_move_table[ROW_MASK & board];
-    board_t board1 = rr_move_table[ROW_MASK & (board >> 16)] << 16;
-    board_t board2 = rr_move_table[ROW_MASK & (board >> 32)] << 32;
-    board_t board3 = rr_move_table[ROW_MASK & (board >> 48)] << 48;
-    return board0 | board1 | board2 | board3;
-}
-
-board_t move_u(const board_t& board){
-    board_t board0 = u_move_table[col_to_row(COL_MASK & board)];
-    board_t board1 = u_move_table[col_to_row(COL_MASK & (board >> 4))] << 4;
-    board_t board2 = u_move_table[col_to_row(COL_MASK & (board >> 8))] << 8;
-    board_t board3 = u_move_table[col_to_row(COL_MASK & (board >> 12))] << 12;
-    return board0 | board1 | board2 | board3;
-}
-
-board_t move_uu(const board_t& board){
-    board_t board0 = uu_move_table[col_to_row(COL_MASK & board)];
-    board_t board1 = uu_move_table[col_to_row(COL_MASK & (board >> 4))] << 4;
-    board_t board2 = uu_move_table[col_to_row(COL_MASK & (board >> 8))] << 8;
-    board_t board3 = uu_move_table[col_to_row(COL_MASK & (board >> 12))] << 12;
-    return board0 | board1 | board2 | board3;
-}
-
-board_t move_d(const board_t& board){
-    board_t board0 = d_move_table[col_to_row(COL_MASK & board)];
-    board_t board1 = d_move_table[col_to_row(COL_MASK & (board >> 4))] << 4;
-    board_t board2 = d_move_table[col_to_row(COL_MASK & (board >> 8))] << 8;
-    board_t board3 = d_move_table[col_to_row(COL_MASK & (board >> 12))] << 12;
-    return board0 | board1 | board2 | board3;
-}
-
-board_t move_dd(const board_t& board){
-    board_t board0 = dd_move_table[col_to_row(COL_MASK & board)];
-    board_t board1 = dd_move_table[col_to_row(COL_MASK & (board >> 4))] << 4;
-    board_t board2 = dd_move_table[col_to_row(COL_MASK & (board >> 8))] << 8;
-    board_t board3 = dd_move_table[col_to_row(COL_MASK & (board >> 12))] << 12;
-    return board0 | board1 | board2 | board3;
-}
-
-board_t _shift_board(const board_t& board, const DIRECTION& d) {
-    switch(d) {
-    case L:
-        return move_l(board);
-    case LL:
-        return move_ll(board);
-    case R:
-        return move_r(board);
-    case RR:
-        return move_rr(board);
-    case U:
-        return move_u(board);
-    case UU:
-        return move_uu(board);
-    case D:
-        return move_d(board);
-    case DD:
-        return move_dd(board);
-    default:
-        return 0;
-    }
-}
-
 int Board::score() const {
     return board_score(board) - penalty;
-}
-
-size_t _rank(const board_t& board) {
-    size_t res = 0;
-    board_t tmp = board;
-    while (tmp){
-        res = std::max(res, (size_t) (tmp & 0xf));
-        tmp >>= 4;
-    }
-    return res;
 }
 
 size_t Board::rank() const {
     if (max_tile_exceeded) return 16;
     return _rank(board);
-}
-
-size_t _count(const board_t& board, const size_t& rank) {
-    size_t res = 0;
-    board_t tmp = board;
-    while (tmp){
-        res += (rank == (tmp & 0xf));
-        tmp >>= 4;
-    }
-    return res;
 }
 
 size_t Board::count(const size_t& rank) const {
@@ -521,14 +350,6 @@ std::vector<DIRECTION> _valid_moves(const board_t& board){
     std::vector<DIRECTION> res = {};
     for (DIRECTION d : DIRECTIONS){
         if (_shift_board(board, d) != board) res.emplace_back(d);
-    }
-    return res;
-}
-
-u_int16_t _valid_move_mask(const board_t& board) {
-    u_int16_t res = 0;
-    for (DIRECTION d : DIRECTIONS){
-        if (_shift_board(board, d) != board) res = res | (1 << d);
     }
     return res;
 }

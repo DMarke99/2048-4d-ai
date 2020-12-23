@@ -13,7 +13,7 @@ const std::vector<float> params = {
 
 void display_ai_game(int depth, float min_prob, bool show_analytics){
     srand((u_int32_t) time(NULL));
-    init_tables();
+    
 
     trans_table T(params);
 
@@ -83,7 +83,7 @@ void display_ai_game(int depth, float min_prob, bool show_analytics){
 
 void display_mcts_game(int n_sims, bool show_analytics){
     srand((u_int32_t) time(NULL));
-    init_tables();
+    
 
     trans_table T(params);
 
@@ -150,7 +150,7 @@ void display_mcts_game(int n_sims, bool show_analytics){
 
 void test_params(int depth, float min_prob, size_t n_sims){
     srand((u_int32_t) time(NULL));
-    init_tables();
+    
 
     std::stringstream filepath;;
     filepath << "/ADD/FILE/PATH/HERE/2048-4d-ai-test ";
@@ -190,7 +190,7 @@ void test_params(int depth, float min_prob, size_t n_sims){
 // estimates the success probability from a start point of reaching a given rank
 float test_transition(int depth, float min_prob, board_t initial_pos, size_t terminal_rank, std::vector<float> params, size_t n_gens, size_t n_games, bool verbose){
     srand((u_int32_t) time(NULL));
-    init_tables();
+    
     trans_table T(params);
     
     float success_counter = 0;

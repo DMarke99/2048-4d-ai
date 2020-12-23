@@ -2,9 +2,11 @@
 # include "board.hpp"
 # include <future>
 # include <atomic>
+# include <robin_hood.h>
 
 extern const size_t MAX_DEPTH;
 extern const bool FAST_HEURISTIC;
+extern const bool ALL_CUBES;
 extern const bool MULTITHREADED;
 
 template <class T>
@@ -23,7 +25,7 @@ struct move_state {
     float emax_val;
 };
 
-typedef std::vector<std::unordered_map<board_t, emax_state>> cached_emax_states_t;
+typedef std::vector<robin_hood::unordered_flat_map<board_t, emax_state>> cached_emax_states_t;
 
 // board manipulation methods used only for calculating heuristics
 board_t h_board_0(const board_t& board);

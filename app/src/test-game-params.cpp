@@ -23,10 +23,10 @@ int main() {
     */
     
     std::cout << "2nd Hardest Transition 4 steps harder 10 tiles spawned" << std::endl;
-    std::cout << std::setprecision(4) << test_transition(6, 0.02, 0xEDBC, 15, params, 10, 100, true) << std::endl;
+    std::cout << std::setprecision(4) << test_transition(6, 0.01, 0xEDBC, 15, params, 10, 100, true) << std::endl;
     
     std::cout << "Hardest Transition 4 steps harder 10 tiles spawned" << std::endl;
-    std::cout << std::setprecision(4) << test_transition(6, 0.02, 0xFECD, 16, params, 10, 100, true) << std::endl;
+    std::cout << std::setprecision(4) << test_transition(6, 0.01, 0xFECD, 16, params, 10, 100, true) << std::endl;
     
 
     //std::cout << "Last transition 4 steps harder augmented heuristic" << std::endl;
