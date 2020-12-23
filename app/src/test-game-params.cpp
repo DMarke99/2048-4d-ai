@@ -1,7 +1,7 @@
 #include "game.hpp"
 
 const std::vector<float> params = {
-    800.0f, //merge weight
+    50.0f, //merge weight
     300.0f, //blank weight
     20.0f, //cubic face weight
     5.0f, //square face weight relative to cube
@@ -18,15 +18,27 @@ const std::vector<float> params = {
 int main() {
     
     /*
+    srand(time(NULL));
+    Board B = Board(rand());
+    std::cout << B << std::endl;
+    B.board = reorganize(B.board);
+    std::cout << B << std::endl;
+    return 0;
+    */
+    
+    /*
     std::cout << "3rd Hardest Transition 4 steps harder 10 tiles spawned" << std::endl;
     std::cout << std::setprecision(4) << test_transition(6, 0.02, 0xDCAB, 14, params, 10, 100, true) << std::endl;
     */
     
-    std::cout << "2nd Hardest Transition 4 steps harder 10 tiles spawned" << std::endl;
-    std::cout << std::setprecision(4) << test_transition(6, 0.01, 0xEDBC, 15, params, 10, 100, true) << std::endl;
+    std::cout << "Merge Weight 50" << std::endl;
     
-    std::cout << "Hardest Transition 4 steps harder 10 tiles spawned" << std::endl;
-    std::cout << std::setprecision(4) << test_transition(6, 0.01, 0xFECD, 16, params, 10, 100, true) << std::endl;
+    std::cout << "Hardest Transition 6 steps harder 8 tiles spawned" << std::endl;
+    std::cout << std::setprecision(4) << test_transition(6, 0.05, 0xFECDBA, 16, params, 8, 100, true) << std::endl;
+    
+    
+    std::cout << "2nd Hardest Transition 6 steps harder 8 tiles spawned" << std::endl;
+    std::cout << std::setprecision(4) << test_transition(6, 0.05, 0xEDBCA9, 15, params, 8, 100, true) << std::endl;
     
 
     //std::cout << "Last transition 4 steps harder augmented heuristic" << std::endl;

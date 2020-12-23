@@ -38,7 +38,7 @@ board_t h_board_5(const board_t& board);
 
 board_t facet(const board_t& board, const int& f_idx);
 board_t h_board(const board_t& board, const int& h_idx);
-board_t reorganize(const board_t& board, const size_t& level);
+board_t reorganize(const board_t& board, const size_t& level=0);
 
 // transposition table used for 2048-4d-ai
 class trans_table {

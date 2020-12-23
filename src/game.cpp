@@ -2,7 +2,7 @@
 
 const float FPS_WINDOW = 5.0;
 
-const std::vector<float> params = {
+const std::vector<float> PARAMS = {
     50.0f, //merge weight
     300.0f, //blank weight
     20.0f, //cubic face weight
@@ -15,7 +15,7 @@ void display_ai_game(int depth, float min_prob, bool show_analytics){
     srand((u_int32_t) time(NULL));
     
 
-    trans_table T(params);
+    trans_table T(PARAMS);
 
     // generates board
     Board B = Board();
@@ -85,7 +85,7 @@ void display_mcts_game(int n_sims, bool show_analytics){
     srand((u_int32_t) time(NULL));
     
 
-    trans_table T(params);
+    trans_table T(PARAMS);
 
     // generates board
     Board B = Board();
@@ -160,7 +160,7 @@ void test_params(int depth, float min_prob, size_t n_sims){
     std::ofstream myfile;
     myfile.open(filepath.str(), std::ios::app);
     
-    trans_table T(params);
+    trans_table T(PARAMS);
     
     for (int i = 0; i < n_sims; ++i){
         
@@ -227,7 +227,7 @@ void test_transition_random_params(int depth, float min_prob, board_t initial_po
     
     for (int trial = 0; trial < n_sims; ++trial){
         
-        std::vector<float> _params = {
+        std::vector<float> params = {
             (float) (rand() % 1000),
             (float) (rand() % 1000),
             (float) (rand() % 50),
@@ -235,9 +235,9 @@ void test_transition_random_params(int depth, float min_prob, board_t initial_po
             (float) (rand() % 20 + 1) / 4.0f,
             (float) (rand() % 20 + 1) / 4.0f};
         
-        float success_rate = test_transition(depth, min_prob, initial_pos, terminal_rank, _params, 2, n_games);
+        float success_rate = test_transition(depth, min_prob, initial_pos, terminal_rank, params, 2, n_games);
         
-        std::cout << "Params:" << _params << std::endl;
+        std::cout << "Params:" << params << std::endl;
         std::cout << "Success Rate:" << success_rate << std::endl;
         std::cout << std::endl;
     }

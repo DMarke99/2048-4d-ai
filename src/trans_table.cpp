@@ -81,10 +81,10 @@ board_t reorganize(const board_t& board, const size_t& level){
         case 0: {
             
             // finds location of highest value piece
-            size_t i = 0;
+            size_t i = 15;
             size_t max_rank = 0;
             size_t max_rank_loc = 0;
-            for (board_t tmp = res; tmp; tmp >>= 4, ++i){
+            for (board_t tmp = res; tmp; tmp >>= 4, --i){
                 if ((tmp_size = tmp & 0xf) > max_rank){
                     max_rank = tmp_size;
                     max_rank_loc = i;
@@ -94,7 +94,7 @@ board_t reorganize(const board_t& board, const size_t& level){
             // moves highest value piece to left-most bit
             int idx = 0;
             for (; max_rank_loc; max_rank_loc >>= 1, ++idx){
-                if (max_rank_loc & 1) res = flip(res, idx);
+                if (max_rank_loc & 1) res = flip(res, 3-idx);
             }
         }
             
@@ -179,11 +179,8 @@ trans_table::trans_table(const std::vector<float>& params) : b_eval_count(0) {
                     row = arr_to_row_transition(arr);
                     
                     _partial_square_row[row] = params[2] * (row_pow_val[row] + params[4] * row_edge_val[row]);
-                    
                     _aug_partial_square_row[row] = params[3] * _partial_square_row[row];
-                    
                     _partial_heuristic[row] = (FAST_HEURISTIC ? 3 : 1) * (params[0] * n_row_merges[row] + params[1] * zero_count(arr));
-                    
                     _aug_row_mon_vals[row] = params[5] * row_mon_vals[row];
                 }
             }
