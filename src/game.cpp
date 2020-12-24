@@ -1,6 +1,6 @@
 #include "game.hpp"
 
-const float FPS_WINDOW = 5.0; // window used to estimate current FPS (seconds)
+const float FPS_WINDOW = 10.0; // window used to estimate current FPS (seconds)
 const float MIN_FRAME_LENGTH = 0.00; // minimum time between frames (seconds)
 
 const std::vector<float> PARAMS = {
@@ -152,14 +152,12 @@ void display_mcts_game(int n_sims, bool show_analytics){
     std::cout << "Final Score: " << B.score() << std::endl;
 }
 
-void test_params(int depth, float min_prob, size_t n_sims){
+void test_params(int depth, float min_prob, size_t n_sims, std::stringstream& filepath){
     srand((u_int32_t) time(NULL));
-    
-
-    std::stringstream filepath;;
-    filepath << "/ADD/FILE/PATH/HERE/2048-4d-ai-test ";
+    filepath << "/2048-4d-ai-test ";
     filepath << "(D=" << depth;
     filepath << ", P=" << std::setprecision(5) << min_prob << ").txt";
+    std::cout << "Results output to: " << filepath.str() << std::endl;
     
     std::ofstream myfile;
     myfile.open(filepath.str(), std::ios::app);

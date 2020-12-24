@@ -22,13 +22,23 @@ cmake -S . -B build
 cmake --build build
 ```
 
-to build the project. Any relatively recent C++ compiler should be able to build the output. To run the game execute:
+to build the project. Any relatively recent C++ compiler should be able to build the output. To run the game with default parameters execute:
 
 ```
 bin/play-ai-game
 ```
-For comparison, to run a game with moves determined by Monte Carlo Tree Search, execute:
+To run the game with depth parameter `(int) depth` and minimum probability parameter `(float) min_prob` execute:
 
 ```
-bin/play-mcts-game
+bin/play-ai-game depth min_prob
+```
+To run `(size_t) n_games` games with depth parameter `(int) depth` and minimum probability parameter `(float) min_prob`, outputting the results to folder `(string) output_folder` execute:
+
+```
+bin/run_many_games depth min_prob n_games output_folder
+```
+For comparison, to run a game with moves determined by Monte Carlo Tree Search with `(int) n_sims` random games per valid move, execute:
+
+```
+bin/play-mcts-game n_sims
 ```

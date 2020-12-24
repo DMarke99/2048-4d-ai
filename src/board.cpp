@@ -401,8 +401,8 @@ board_t Board::move(const DIRECTION& d){
 }
 
 DIRECTION Board::random_move() const {
-    std::vector<DIRECTION> moveset = valid_moves();
-    return moveset[rand() % moveset.size()];
+    u_int16_t moveset = valid_move_mask();
+    return DIRECTIONS[63 - selectBit(moveset, 1 + rand() % popcount(moveset))];
 }
 
 std::ostream& operator<<(std::ostream& os, const Board& B){

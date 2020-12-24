@@ -19,3 +19,7 @@ target_link_libraries(play-mcts-game PRIVATE src)
 add_executable(test-game-params src/test-game-params.cpp)
 target_compile_features(test-game-params PRIVATE cxx_std_14)
 target_link_libraries(test-game-params PRIVATE src)
+
+add_executable(run-many-games src/run-many-games.cpp)
+target_compile_features(run-many-games PRIVATE cxx_std_14)
+target_link_libraries(run-many-games PRIVATE src)

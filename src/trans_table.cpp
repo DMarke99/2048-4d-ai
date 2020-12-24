@@ -440,7 +440,6 @@ long long trans_table::mcts_score(const Board& board, const DIRECTION& move, con
     for (int i = 0; i < n_sims; ++i){
         Board tmp_board = board;
         tmp_board.move(move);
-        tmp_board.generate_piece();
         
         while (!is_terminal(tmp_board.board)){
             tmp_board.move(tmp_board.random_move());
@@ -459,7 +458,7 @@ DIRECTION trans_table::mcts(const Board& board, const size_t& n_sims){
     
     if (MULTITHREADED) {
         
-        std::unordered_map<DIRECTION, std::future<long long>> parallel_move_scores;
+        robin_hood::unordered_map<DIRECTION, std::future<long long>> parallel_move_scores;
         
         for (auto move : moves){
     
