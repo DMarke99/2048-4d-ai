@@ -316,7 +316,7 @@ float trans_table::move_node(const board_t& board, const int& depth, const float
 
 // expectation node in expectimax
 float trans_table::expectation_node(const board_t& board, const int& depth, const float& prob, cached_emax_states_t& cached_emax_values, const float& min_prob){
-    std::unordered_map<board_t, emax_state>::iterator address;
+    cached_emax_states_t::iterator address;
     ++b_eval_count;
     
     if ((prob < min_prob) || (depth <= 0)){
