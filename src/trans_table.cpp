@@ -1,9 +1,6 @@
 #include "trans_table.hpp"
 
 const size_t MAX_DEPTH = 16;
-const bool REORGANIZE_BOARD = true;
-const bool FAST_HEURISTIC = false;
-const bool ALL_CUBES = true;
 const bool MULTITHREADED = true;
 
 template <class T>
@@ -14,60 +11,6 @@ T max4(const T& x0, const T& x1, const T& x2, const T& x3){
 template <class T>
 T max6(const T& x0, const T& x1, const T& x2, const T& x3, const T& x4, const T& x5){
     return std::max(std::max(std::max(x0, x1), std::max(x2, x3)), std::max(x4, x5));
-}
-
-// rows are square faces on axis 2 & 3
-board_t h_board_0(const board_t& board){return board;}
-
-// rows are square faces on axis 1 & 3
-board_t h_board_1(const board_t& board){return swap_1_2(board);}
-
-// rows are square faces on axis 0 & 3
-board_t h_board_2(const board_t& board){return swap_0_2(board);}
-
-// rows are square faces on axis 1 & 2
-board_t h_board_3(const board_t& board){return swap_1_3(board);}
-
-// rows are square faces on axis 0 & 2
-board_t h_board_4(const board_t& board){return swap_0_3(board);}
-
-// rows are square faces on axis 0 & 1
-board_t h_board_5(const board_t& board){return transpose(board);}
-
-// function used for parallelization of square face calculations
-board_t h_board(const board_t& board, const int& h_idx){
-    switch (h_idx){
-        case 0:
-            return h_board_0(board);
-        case 1:
-            return h_board_1(board);
-        case 2:
-            return h_board_2(board);
-        case 3:
-            return h_board_3(board);
-        case 4:
-            return h_board_4(board);
-        case 5:
-            return h_board_5(board);
-        default:
-            return 0;
-    }
-}
-
-// function used for parallelization of square face calculations
-board_t facet(const board_t& board, const int& f_idx){
-    switch (f_idx){
-        case 0:
-            return board;
-        case 1:
-            return swap_0_1(board);
-        case 2:
-            return swap_0_2(board);
-        case 3:
-            return swap_0_3(board);
-        default:
-            return 0;
-    }
 }
 
 // rotates and flips board in 4d to an equivalent board to make it easier to calculate heuristic
@@ -167,7 +110,6 @@ board_t reorganize(const board_t& board, const size_t& level){
 
 trans_table::trans_table(const std::vector<float>& params) : b_eval_count(0) {
     this->params = params;
-    if (!REORGANIZE_BOARD) this->params[3] = this->params[3] - 1;
     
     std::vector<board_t> arr;
     board_t row;
@@ -180,7 +122,7 @@ trans_table::trans_table(const std::vector<float>& params) : b_eval_count(0) {
                     
                     _partial_square_row[row] = params[2] * (row_pow_val[row] + params[4] * row_edge_val[row]);
                     _aug_partial_square_row[row] = params[3] * _partial_square_row[row];
-                    _partial_heuristic[row] = (FAST_HEURISTIC ? 3 : 1) * (params[0] * n_row_merges[row] + params[1] * zero_count(arr));
+                    _partial_heuristic[row] = 6 * (params[0] * n_row_merges[row] + params[1] * zero_count(arr));
                     _aug_row_mon_vals[row] = params[5] * row_mon_vals[row];
                 }
             }
@@ -188,82 +130,8 @@ trans_table::trans_table(const std::vector<float>& params) : b_eval_count(0) {
     }
 }
 
-// heuristic which encourages all large tiles to be in the same cubic face, square face and edge
-float trans_table::cube_score(const board_t& board) const {
-    if (FAST_HEURISTIC){
-        float square_0_0 = _partial_square_row[ROW_MASK & board];
-        float square_0_1 = _partial_square_row[ROW_MASK & (board >> 16)];
-        return (square_0_0 + square_0_1) + params[3] * std::max(square_0_0, square_0_1);
-    } else {
-        board_t board0 = board;
-        board_t board1 = h_board_1(board);
-        board_t board2 = h_board_3(board);
-        
-        float square_0_0 = _partial_square_row[ROW_MASK & board0];
-        float square_0_1 = _partial_square_row[ROW_MASK & (board0 >> 16)];
-        float mon_val_0 = _aug_row_mon_vals[ROW_MASK & board0] + _aug_row_mon_vals[ROW_MASK & (board0 >> 16)];
-        
-        float square_1_0 = _partial_square_row[ROW_MASK & board1];
-        float square_1_1 = _partial_square_row[ROW_MASK & (board1 >> 16)];
-        float mon_val_1 = _aug_row_mon_vals[ROW_MASK & board1] + _aug_row_mon_vals[ROW_MASK & (board1 >> 16)];
-        
-        float square_2_0 = _partial_square_row[ROW_MASK & board2];
-        float square_2_1 = _partial_square_row[ROW_MASK & (board2 >> 16)];
-        float mon_val_2 = _aug_row_mon_vals[ROW_MASK & board2] + _aug_row_mon_vals[ROW_MASK & (board2 >> 16)];
-        
-        float facet0 = (square_0_0 + square_0_1) + params[3] * std::max(square_0_0, square_0_1) - mon_val_0;
-        float facet1 = (square_1_0 + square_1_1) + params[3] * std::max(square_1_0, square_1_1) - mon_val_1;
-        float facet2 = (square_2_0 + square_2_1) + params[3] * std::max(square_2_0, square_2_1) - mon_val_2;
-        
-        return std::max(std::max(facet0, facet1), facet2);
-    }
-}
-
-float trans_table::partial_facet_score(const board_t& board) const {
-    float cube1 = cube_score(board >> 32);
-    float cube2 = cube_score(CUBE_MASK & board);
-    return std::max(cube1, cube2);
-}
-
-float trans_table::facet_score(const board_t& board) const {
-    if (ALL_CUBES) {
-        return max4(partial_facet_score(board),
-        partial_facet_score(swap_0_1(board)),
-        partial_facet_score(swap_0_2(board)),
-        partial_facet_score(swap_0_3(board)));
-    } else {
-        return partial_facet_score(board);
-    }
-}
-
-// the remaining parts of the heuristic
-// encourages moving towards boards with merges and blanks and monotone curls in square faces
-float trans_table::partial_heuristic(const board_t& board) const {
-    return _partial_heuristic[ROW_MASK & board] +
-           _partial_heuristic[ROW_MASK & (board >> 16)] +
-           _partial_heuristic[ROW_MASK & (board >> 32)] +
-           _partial_heuristic[ROW_MASK & (board >> 48)];
-}
-
-float trans_table::partial_row_heuristic(const board_t& board) const {
-    if (FAST_HEURISTIC) {
-        return partial_heuristic(board) + partial_heuristic(transpose(board));
-    } else {
-        return partial_heuristic(h_board_0(board))
-        + partial_heuristic(h_board_1(board))
-        + partial_heuristic(h_board_2(board))
-        + partial_heuristic(h_board_3(board))
-        + partial_heuristic(h_board_4(board))
-        + partial_heuristic(h_board_5(board));
-    }
-}
-
 float trans_table::non_terminal_heuristic(const board_t& board) const {
-    if (REORGANIZE_BOARD) {
-        return reorganized_heuristic(reorganize(board, 0));
-    } else {
-        return facet_score(board) + partial_row_heuristic(board);
-    }
+    return reorganized_heuristic(reorganize(board, 0));
 }
 
 float trans_table::reorganized_heuristic(const board_t& board) const {
@@ -276,18 +144,18 @@ float trans_table::reorganized_heuristic(const board_t& board) const {
 
 float trans_table::secondary_cube_heuristic(const board_t& board) const {
     board_t board0 = board;
-    board_t board1 = h_board_1(board);
-    board_t board2 = h_board_3(board);
+    board_t board1 = swap_1_2(board);
+    board_t board2 = swap_1_3(board);
     
     float score0 = _partial_heuristic[ROW_MASK & board0] + _partial_heuristic[ROW_MASK & (board0 >> 16)];
     float score1 = _partial_heuristic[ROW_MASK & board1] + _partial_heuristic[ROW_MASK & (board1 >> 16)];
     float score2 = _partial_heuristic[ROW_MASK & board2] + _partial_heuristic[ROW_MASK & (board2 >> 16)];
     
-    return 6 * std::max(std::max(score0, score1), score2);
+    return std::max(std::max(score0, score1), score2);
 }
 
 float trans_table::heuristic(const board_t& board) const {
-    return non_terminal_heuristic(board) - LOSS_PENALTY * is_terminal(board);
+    return non_terminal_heuristic(board) - LOSS_PENALTY * _is_terminal(board);
 }
 
 // move node in expectimax
@@ -441,7 +309,7 @@ long long trans_table::mcts_score(const Board& board, const DIRECTION& move, con
         Board tmp_board = board;
         tmp_board.move(move);
         
-        while (!is_terminal(tmp_board.board)){
+        while (!tmp_board.is_terminal()){
             tmp_board.move(tmp_board.random_move());
         }
         tmp_score += tmp_board.score();

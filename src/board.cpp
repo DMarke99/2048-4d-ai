@@ -262,35 +262,6 @@ float edge_pow_value(std::vector<board_t> arr){
     });
 }
 
-bool rows_are_terminal(const board_t& board){
-    return row_is_terminal[ROW_MASK & board] &&
-    row_is_terminal[ROW_MASK & (board >> 16)] &&
-    row_is_terminal[ROW_MASK & (board >> 32)] &&
-    row_is_terminal[ROW_MASK & (board >> 48)];
-}
-
-bool is_terminal(const board_t& board){
-    return rows_are_terminal(board) && rows_are_terminal(transpose(board));
-}
-
-// finds blank tiles
-board_t is_blank(const board_t& board){
-    board_t blanks = ~board;
-    
-    blanks = blanks & (blanks >> 1);
-    blanks = blanks & (blanks >> 2);
-    
-    return blanks & 0x1111'1111'1111'1111;
-}
-
-// current score including spawned tiles
-int board_score(const board_t& board){
-    return row_val[ROW_MASK & board] +
-    row_val[ROW_MASK & (board >> 16)] +
-    row_val[ROW_MASK & (board >> 32)] +
-    row_val[ROW_MASK & (board >> 48)];
-}
-
 size_t _get(const board_t& board, const size_t& x0, const size_t& x1, const size_t& x2, const size_t& x3){
     assert ((x0 >= 0) && (x0 < 2));
     assert ((x1 >= 0) && (x1 < 2));
@@ -320,7 +291,7 @@ board_t _set(const board_t& board, const size_t& x0, const size_t& x1, const siz
     return (res & (~(0xf << (4 * idx)))) | (log2 << 4 * idx);
 }
 
-size_t Board::get(const size_t& x0, const size_t& x1, const size_t& x2, const size_t& x3){
+size_t Board::get(const size_t& x0, const size_t& x1, const size_t& x2, const size_t& x3) const {
     return _get(board, x0, x1, x2, x3);
 }
 
@@ -340,6 +311,10 @@ size_t Board::rank() const {
 size_t Board::count(const size_t& rank) const {
     return _count(board, rank);
 }
+
+bool Board::is_terminal() const {
+    return _is_terminal(board);
+};
 
 board_t Board::shift_board(const DIRECTION& d) {
     board = _shift_board(board, d);
@@ -403,6 +378,14 @@ board_t Board::move(const DIRECTION& d){
 DIRECTION Board::random_move() const {
     u_int16_t moveset = valid_move_mask();
     return DIRECTIONS[63 - selectBit(moveset, 1 + rand() % popcount(moveset))];
+}
+
+Board generate_game(size_t n_initial_tiles){
+    Board res = Board();
+    for (int i = 0; i < n_initial_tiles; ++i){
+        res.generate_piece();
+    }
+    return res;
 }
 
 std::ostream& operator<<(std::ostream& os, const Board& B){

@@ -42,3 +42,21 @@ For comparison, to run a game with moves determined by Monte Carlo Tree Search w
 ```
 bin/play-mcts-game n_sims
 ```
+
+## Performance
+
+After running 100 games with `depth = 6, min_prob = 0.01`, I observed the following performance:
+
+|Tile|Proportion of games <br /> tile achieved|
+|:-:|:-:|
+|2048|100%|
+|4096|98%|
+|8192|98%|
+|16384|96%|
+|32768|87%|
+|65536|15%|
+
+I also observed the following statistics in the sample:
+- Minimum Score: 36,924
+- Median Score: 845,132
+- Maximum Score: 2,212,500

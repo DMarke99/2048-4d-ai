@@ -1,8 +1,16 @@
 #include "game.hpp"
 
+typedef std::chrono::time_point<std::chrono::system_clock> time_point;
+auto get_current_time = std::chrono::system_clock::now;
+typedef std::chrono::milliseconds ms;
+
+template<typename From>
+ms cast_to_ms(const From& T) {
+    return std::chrono::duration_cast<ms>(T);
+};
+
 const float FPS_WINDOW = 10.0; // window used to estimate current FPS (seconds)
 const float MIN_FRAME_LENGTH = 0.00; // minimum time between frames (seconds)
-
 const std::vector<float> PARAMS = {
     50.0f, //merge weight
     300.0f, //blank weight
@@ -14,20 +22,17 @@ const std::vector<float> PARAMS = {
 
 void display_ai_game(int depth, float min_prob, bool show_analytics){
     srand((u_int32_t) time(NULL));
-    
-
     trans_table T(PARAMS);
 
     // generates board
-    Board B = Board();
-    B.generate_piece();
-    B.generate_piece();
+    Board B = generate_game(2);
     
-    std::queue<std::chrono::time_point<std::chrono::system_clock>> move_times;
-    auto start = std::chrono::system_clock::now();
+    //initialises clocks
+    std::queue<time_point> move_times;
+    auto start = get_current_time();
     move_times.push(start);
-    
     float count = 0;
+    
     // outputs initial board
     std::cout << "      [[ 2048-4D ]]      " << std::endl;
     std::cout << B << std::endl;
@@ -40,7 +45,7 @@ void display_ai_game(int depth, float min_prob, bool show_analytics){
     }
     
     // plays game
-    while (B.valid_moves().size()){
+    while (!B.is_terminal()){
         if (show_analytics) {
             printf("\e[17A");
         } else {
@@ -54,19 +59,19 @@ void display_ai_game(int depth, float min_prob, bool show_analytics){
         B.move(best_move);
         
         // enforces minimum frame length
-        while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - move_times.back()).count() < 1000 * MIN_FRAME_LENGTH){};
+        while (cast_to_ms(get_current_time() - move_times.back()).count() < 1000 * MIN_FRAME_LENGTH){};
         
         // reports statistics
         auto end = std::chrono::system_clock::now();
         move_times.push(end);
-        while (std::chrono::duration_cast<std::chrono::milliseconds>(move_times.back() - move_times.front()).count() > FPS_WINDOW * 1000) move_times.pop();
+        while (cast_to_ms(move_times.back() - move_times.front()).count() > FPS_WINDOW * 1000) move_times.pop();
         
-        auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(move_times.back() - move_times.front()).count();
+        auto time_elapsed = cast_to_ms(move_times.back() - move_times.front()).count();
         float moves_per_second = (1000.0 * (move_times.size() - 1)) / time_elapsed;
         
         ++count;
         
-        auto total_time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        auto total_time_elapsed = cast_to_ms(end - start).count();
         float avg_moves_per_second = (1000.0 * count) / total_time_elapsed;
         int board_evals_per_second = (1000.0 * T.b_eval_count.load()) / total_time_elapsed;
         
@@ -87,20 +92,17 @@ void display_ai_game(int depth, float min_prob, bool show_analytics){
 
 void display_mcts_game(int n_sims, bool show_analytics){
     srand((u_int32_t) time(NULL));
-    
-
     trans_table T(PARAMS);
 
     // generates board
-    Board B = Board();
-    B.generate_piece();
-    B.generate_piece();
+    Board B = generate_game(2);
     
-    std::queue<std::chrono::time_point<std::chrono::system_clock>> move_times;
-    auto start = std::chrono::system_clock::now();
+    // initialises clocks
+    std::queue<time_point> move_times;
+    auto start = get_current_time();
     move_times.push(start);
-    
     float count = 0;
+    
     // outputs initial board
     std::cout << "      [[ 2048-4D ]]      " << std::endl;
     std::cout << B << std::endl;
@@ -112,7 +114,7 @@ void display_mcts_game(int n_sims, bool show_analytics){
     }
     
     // plays game
-    while (B.valid_moves().size()){
+    while (!B.is_terminal()){
         if (show_analytics) {
             printf("\e[16A");
         } else {
@@ -126,16 +128,14 @@ void display_mcts_game(int n_sims, bool show_analytics){
         B.move(best_move);
         
         // reports statistics
-        auto end = std::chrono::system_clock::now();
+        auto end = get_current_time();
         move_times.push(end);
-        while (std::chrono::duration_cast<std::chrono::milliseconds>(move_times.back() - move_times.front()).count() > FPS_WINDOW * 1000) move_times.pop();
-        
-        auto time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(move_times.back() - move_times.front()).count();
+        while (cast_to_ms(move_times.back() - move_times.front()).count() > FPS_WINDOW * 1000) move_times.pop();
+        auto time_elapsed = cast_to_ms(move_times.back() - move_times.front()).count();
         float moves_per_second = (1000.0 * (move_times.size() - 1)) / time_elapsed;
-        
         ++count;
         
-        auto total_time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        auto total_time_elapsed = cast_to_ms(end - start).count();
         float avg_moves_per_second = (1000.0 * count) / total_time_elapsed;
         
         // outputs board
@@ -167,12 +167,10 @@ void test_params(int depth, float min_prob, size_t n_sims, std::stringstream& fi
     for (int i = 0; i < n_sims; ++i){
         
         // generates board
-        Board B = Board();
-        B.generate_piece();
-        B.generate_piece();
+        Board B = generate_game(2);
         
         // plays game
-        while (B.valid_moves().size()){
+        while (!B.is_terminal()){
 
             // calculates optimal move
             DIRECTION best_move = T.expectimax(B, depth, min_prob);
@@ -192,7 +190,6 @@ void test_params(int depth, float min_prob, size_t n_sims, std::stringstream& fi
 // estimates the success probability from a start point of reaching a given rank
 float test_transition(int depth, float min_prob, board_t initial_pos, size_t terminal_rank, std::vector<float> params, size_t n_gens, size_t n_games, bool verbose){
     srand((u_int32_t) time(NULL));
-    
     trans_table T(params);
     
     float success_counter = 0;
@@ -202,7 +199,7 @@ float test_transition(int depth, float min_prob, board_t initial_pos, size_t ter
 
         for (int j = 0; j < n_gens; ++j) B.generate_piece();
         // plays game
-        while ((B.valid_moves().size()) && (B.rank() < terminal_rank)){
+        while ((!B.is_terminal()) && (B.rank() < terminal_rank)){
         
             // calculates optimal move
             DIRECTION best_move = T.expectimax(B, depth, min_prob);

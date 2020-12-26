@@ -67,11 +67,6 @@ float edge_pow_value(std::vector<board_t> arr);
 int loc_val(const board_t& val);
 float loc_pow_val(float val);
 
-bool rows_are_terminal(const board_t& board);
-bool is_terminal(const board_t& board);
-board_t is_blank(const board_t& board);
-int board_score(const board_t& board);
-
 // board manipulation and access methods
 
 // turns 0xa000b000c000d into 0xabcd
@@ -289,6 +284,33 @@ constexpr u_int16_t _valid_move_mask(const board_t& board) {
     return res;
 }
 
+constexpr bool rows_are_terminal(const board_t& board){
+    return row_is_terminal[ROW_MASK & board] &&
+    row_is_terminal[ROW_MASK & (board >> 16)] &&
+    row_is_terminal[ROW_MASK & (board >> 32)] &&
+    row_is_terminal[ROW_MASK & (board >> 48)];
+}
+
+constexpr bool _is_terminal(const board_t& board){
+    return rows_are_terminal(board) && rows_are_terminal(transpose(board));
+}
+
+// finds blank tiles
+constexpr board_t is_blank(const board_t& board){
+    board_t blanks = ~board;
+    blanks = blanks & (blanks >> 1);
+    blanks = blanks & (blanks >> 2);
+    return blanks & 0x1111'1111'1111'1111;
+}
+
+// current score including spawned tiles
+constexpr int board_score(const board_t& board){
+    return row_val[ROW_MASK & board] +
+    row_val[ROW_MASK & (board >> 16)] +
+    row_val[ROW_MASK & (board >> 32)] +
+    row_val[ROW_MASK & (board >> 48)];
+}
+
 size_t _get(const board_t& board, const size_t& x0, const size_t& x1, const size_t& x2, const size_t& x3);
 board_t _set(const board_t& board, const size_t& x0, const size_t& x1, const size_t& x2, const size_t& x3, size_t val);
 std::vector<DIRECTION> _valid_moves(const board_t& board);
@@ -302,11 +324,12 @@ public:
     
     Board(const board_t& board = 0) : board(board) {};
     
-    size_t get(const size_t& x0, const size_t& x1, const size_t& x2, const size_t& x3);
+    size_t get(const size_t& x0, const size_t& x1, const size_t& x2, const size_t& x3) const;
     void set(const size_t& x0, const size_t& x1, const size_t& x2, const size_t& x3, const size_t& val);
     int score() const;
     size_t rank() const;
     size_t count(const size_t& rank) const;
+    bool is_terminal() const;
     
     // move based methods
     board_t shift_board(const DIRECTION& d);
@@ -317,4 +340,5 @@ public:
     DIRECTION random_move() const;
 };
 
+Board generate_game(size_t n_initial_tiles);
 std::ostream& operator<<(std::ostream& os, const Board& B);

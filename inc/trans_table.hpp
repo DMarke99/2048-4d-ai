@@ -5,9 +5,6 @@
 # include <robin_hood.h>
 
 extern const size_t MAX_DEPTH;
-extern const bool REORGANIZE_BOARD;
-extern const bool FAST_HEURISTIC;
-extern const bool ALL_CUBES;
 extern const bool MULTITHREADED;
 
 template <class T>
@@ -29,15 +26,6 @@ struct move_state {
 typedef std::vector<robin_hood::unordered_flat_map<board_t, emax_state>> cached_emax_states_t;
 
 // board manipulation methods used only for calculating heuristics
-board_t h_board_0(const board_t& board);
-board_t h_board_1(const board_t& board);
-board_t h_board_2(const board_t& board);
-board_t h_board_3(const board_t& board);
-board_t h_board_4(const board_t& board);
-board_t h_board_5(const board_t& board);
-
-board_t facet(const board_t& board, const int& f_idx);
-board_t h_board(const board_t& board, const int& h_idx);
 board_t reorganize(const board_t& board, const size_t& level=0);
 
 // transposition table used for 2048-4d-ai
@@ -54,11 +42,6 @@ public:
     trans_table(const std::vector<float>& params={800,600,20,15,5,0});
     
     // heuristic based ethods
-    float cube_score(const board_t& board) const;
-    float partial_facet_score(const board_t& board) const;
-    float facet_score(const board_t& board) const;
-    float partial_heuristic(const board_t& board) const;
-    float partial_row_heuristic(const board_t& board) const;
     float non_terminal_heuristic(const board_t& board) const;
     float reorganized_heuristic(const board_t& board) const;
     float secondary_cube_heuristic(const board_t& board) const;
